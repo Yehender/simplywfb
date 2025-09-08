@@ -1,0 +1,20 @@
+# SimplifyWFB - Dependencias de Python
+# Script simplificado de pentesting
+
+# No se requieren dependencias externas de Python
+# El script utiliza solo librerías estándar de Python 3.6+
+
+# Herramientas del sistema requeridas:
+# - nmap (para escaneo de red)
+# - netcat (para backdoors)
+# - openssh-client (para conexiones SSH)
+# - ping (para descubrimiento de hosts)
+
+# Instalación en Ubuntu/Debian:
+# sudo apt install nmap netcat-openbsd openssh-client
+
+# Instalación en Kali Linux:
+# sudo apt install nmap netcat-traditional openssh-client
+
+# El script detecta automáticamente la configuración de red
+# y no requiere archivos de configuración adicionales
