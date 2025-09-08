@@ -32,6 +32,8 @@ SimplifyWFB es una versión simplificada del sistema de pentesting que contiene 
 - Instalación de backdoors
 - Establecimiento de conexiones remotas
 - Configuración de apuntadores C2
+- **Detección y acceso a cámaras IP**
+- **Captura de screenshots de prueba**
 
 #### Fase 5: Verificación de Persistencias
 - Verificación de usuarios creados
@@ -55,6 +57,14 @@ En el modo pentest frío, después de completar todas las fases y verificar las 
 ```bash
 python3 simplifywfb.py
 ```
+
+### Flujo de Ejecución
+
+1. **Confirmación Legal**: Requiere confirmación de autorización
+2. **Auto-configuración**: Detección automática de red y parámetros
+3. **Confirmación de Escaneo**: Muestra configuración y confirma inicio
+4. **Ejecución de Fases**: Reconocimiento, credenciales, movimiento lateral, persistencia
+5. **Reporte Final**: JSON con toda la información de acceso
 
 ### Opciones Disponibles
 
@@ -98,7 +108,8 @@ El script genera un único archivo JSON con toda la información:
     "users_created": [...],
     "backdoors_created": [...],
     "remote_connections": [...],
-    "c2_pointers": [...]
+    "c2_pointers": [...],
+    "cameras_accessed": [...]
   },
   "phase_5_verification": {
     "status": "completed",
@@ -114,11 +125,65 @@ El script genera un único archivo JSON con toda la información:
     "compromised_hosts": 3,
     "persistent_access_points": 5,
     "total_credentials": 8,
+    "cameras_accessed": 2,
     "execution_time": 120.5,
     "success_rate": 30.0
   }
 }
 ```
+
+## Información de Persistencias
+
+El reporte incluye información detallada sobre todas las persistencias establecidas:
+
+## 📹 Información de Cámaras IP
+
+### Cámaras Accedidas
+```json
+{
+  "host": "192.168.1.100",
+  "port": 80,
+  "protocol": "http",
+  "camera_type": "hikvision",
+  "credentials": {
+    "username": "admin",
+    "password": "admin"
+  },
+  "camera_info": {
+    "model": "DS-2CD2142FWD-I",
+    "firmware": "V5.5.82",
+    "features": ["ptz", "night_vision", "audio"]
+  },
+  "screenshots": [
+    "camera_screenshots_1640995200/192.168.1.100_screenshot_1.jpg",
+    "camera_screenshots_1640995200/192.168.1.100_screenshot_2.jpg"
+  ],
+  "access_urls": {
+    "web_interface": [
+      "http://admin:admin@192.168.1.100:80/",
+      "http://admin:admin@192.168.1.100:80/index.html"
+    ],
+    "streaming": [
+      "http://admin:admin@192.168.1.100:80/video.mjpg",
+      "http://admin:admin@192.168.1.100:80/stream"
+    ],
+    "snapshots": [
+      "http://admin:admin@192.168.1.100:80/snapshot.cgi",
+      "http://admin:admin@192.168.1.100:80/image"
+    ],
+    "control": [
+      "http://admin:admin@192.168.1.100:80/cgi-bin/ptz.cgi"
+    ]
+  }
+}
+```
+
+### Características de Cámaras
+- **Detección automática**: Identifica cámaras IP en puertos comunes
+- **Credenciales por defecto**: Prueba credenciales específicas de cámaras
+- **Screenshots de prueba**: Captura 2 imágenes como verificación
+- **URLs de acceso**: Genera todas las URLs necesarias para acceso posterior
+- **Información detallada**: Modelo, firmware, características detectadas
 
 ## Información de Persistencias
 
@@ -191,15 +256,38 @@ rdesktop -u svc_192_168_1_100 -p 'P@ssw0rd_100!' 192.168.1.100
 
 ## Requisitos
 
+### Python
 - Python 3.6+
-- Nmap
-- Herramientas de red básicas (ping, nc, ssh)
+- Dependencias: `pip install -r requirements.txt`
+
+### Herramientas del Sistema
+- **nmap**: Escaneo de red
+- **hydra**: Ataques de fuerza bruta
+- **netcat**: Backdoors
+- **openssh-client**: Conexiones SSH
+- **smbclient**: Conexiones SMB
 
 ## Instalación
 
+### Ubuntu/Debian
 ```bash
-# Instalar dependencias
-sudo apt install nmap netcat-openbsd openssh-client
+# Instalar herramientas del sistema
+sudo apt install nmap hydra netcat-openbsd openssh-client smbclient
+
+# Instalar dependencias Python
+pip install -r requirements.txt
+
+# Ejecutar script
+python3 simplifywfb.py
+```
+
+### Kali Linux
+```bash
+# Instalar herramientas del sistema
+sudo apt install nmap hydra netcat-traditional openssh-client smbclient
+
+# Instalar dependencias Python
+pip install -r requirements.txt
 
 # Ejecutar script
 python3 simplifywfb.py
@@ -215,6 +303,8 @@ python3 simplifywfb.py
 - ✅ **Creación real de usuarios persistentes** en sistemas
 - ✅ **Instalación real de backdoors** con netcat
 - ✅ **Acceso remoto real** a sistemas comprometidos
+- ✅ **Detección y acceso real a cámaras IP** con screenshots
+- ✅ **Auto-configuración inteligente de red** antes del escaneo
 - ✅ **Limpieza real** de rastros en modo cold
 
 ### ⚠️ ADVERTENCIAS LEGALES:

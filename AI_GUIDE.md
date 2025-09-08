@@ -75,6 +75,7 @@ Cada fase tiene la misma estructura:
   - `_create_backdoors()`: Instala backdoors
   - `_establish_remote_connections()`: Establece conexiones remotas
   - `_setup_c2_pointers()`: Configura apuntadores C2
+  - `_access_detected_cameras()`: Accede a cámaras IP detectadas
 
 ### Fase 5: Verificación (Líneas 702-800)
 - **Función principal**: `phase_5_verification()`
@@ -100,6 +101,20 @@ def _detect_network_config(self):
 - **Propósito**: Detecta automáticamente IP local y red objetivo
 - **Método**: Socket UDP a 8.8.8.8 para obtener IP local
 - **Cálculo**: Red /24 basada en IP local
+
+### Auto-Configuración de Red (Líneas 200-400)
+```python
+def auto_configure_network(self):
+```
+- **Propósito**: Configuración completa de red antes del escaneo
+- **Subfunciones**:
+  - `_detect_basic_network_info()`: Detecta IP local, máscara, rango
+  - `_detect_gateway()`: Detecta gateway de la red
+  - `_detect_dns_servers()`: Detecta servidores DNS
+  - `_quick_host_discovery()`: Descubrimiento rápido de hosts activos
+  - `_determine_network_type()`: Determina tipo de red
+  - `_configure_scan_parameters()`: Configura parámetros de escaneo
+  - `_show_network_summary()`: Muestra resumen de configuración
 
 ## Modos de Operación
 
@@ -135,12 +150,77 @@ self.config = {
     'scan_timeout': 30,
     'max_threads': 10,
     'common_ports': [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 993, 995, 1433, 3389, 5432, 5900, 8080],
+    'camera_ports': [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 443, 554, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8888, 9999],
     'default_users': ['admin', 'administrator', 'root', 'guest', 'user'],
-    'default_passwords': ['admin', 'password', '123456', 'root', 'guest', '']
+    'default_passwords': ['admin', 'password', '123456', 'root', 'guest', ''],
+    'camera_users': ['admin', 'administrator', 'root', 'guest', 'user', 'camera', 'ipcam', 'webcam', 'viewer', 'operator'],
+    'camera_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'camera', 'ipcam', 'webcam', 'viewer', 'operator', '1234', '12345', '123456789', 'admin123', 'password123']
 }
 ```
 
+## Funciones de Cámaras IP
+
+### Detección de Cámaras (Líneas 800-900)
+- **Función principal**: `_access_detected_cameras()`
+- **Subfunciones**:
+  - `_identify_camera_services()`: Identifica servicios que podrían ser cámaras
+  - `_exploit_camera()`: Explota cámara específica
+  - `_detect_camera_type()`: Detecta tipo de cámara (Hikvision, Dahua, etc.)
+  - `_brute_force_camera_credentials()`: Fuerza bruta específica para cámaras
+  - `_get_camera_information()`: Obtiene información detallada de la cámara
+  - `_capture_camera_screenshots()`: Captura screenshots de prueba
+  - `_generate_camera_urls()`: Genera URLs de acceso
+
+### Identificación de Cámaras
+```python
+def _identify_camera_services(self, services: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # Verifica puertos comunes de cámaras
+    # Detecta servicios HTTP/RTSP en puertos específicos
+    # Clasifica por indicadores de cámara
+```
+
+### Explotación de Cámaras
+```python
+def _exploit_camera(self, camera: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    # 1. Detecta tipo de cámara
+    # 2. Intenta credenciales por defecto
+    # 3. Obtiene información de la cámara
+    # 4. Toma screenshots de prueba
+    # 5. Genera URLs de acceso
+```
+
+### Detección de Tipo de Cámara
+```python
+def _detect_camera_type(self, camera: Dict[str, Any]) -> str:
+    # Hace request HTTP para detectar marca
+    # Detecta: hikvision, dahua, axis, foscam, dlink, tp-link, xiaomi
+    # Retorna tipo detectado o 'generic_ip_camera'
+```
+
+### Fuerza Bruta de Cámaras
+```python
+def _brute_force_camera_credentials(self, camera: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    # Usa credenciales específicas de cámaras
+    # Prueba autenticación HTTP básica
+    # Retorna credenciales válidas si las encuentra
+```
+
+### Captura de Screenshots
+```python
+def _capture_camera_screenshots(self, camera: Dict[str, Any], credentials: Dict[str, str]) -> List[str]:
+    # Intenta múltiples endpoints de captura
+    # Verifica que la respuesta sea una imagen
+    # Captura máximo 2 screenshots de prueba
+    # Guarda en directorio con timestamp
+```
+
 ## Puntos de Modificación Común
+
+### Agregar Nuevos Puertos de Cámaras
+**Ubicación**: Línea 95
+```python
+'camera_ports': [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 443, 554, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8888, 9999, 9000, 9001]
+```
 
 ### Agregar Nuevos Puertos
 **Ubicación**: Línea 95
@@ -270,6 +350,47 @@ self.config = {
 }
 ```
 
+### Cámara Accedida
+```python
+{
+    'host': '192.168.1.100',
+    'port': 80,
+    'protocol': 'http',
+    'camera_type': 'hikvision',
+    'credentials': {
+        'username': 'admin',
+        'password': 'admin'
+    },
+    'camera_info': {
+        'model': 'DS-2CD2142FWD-I',
+        'firmware': 'V5.5.82',
+        'features': ['ptz', 'night_vision', 'audio']
+    },
+    'screenshots': [
+        'camera_screenshots_1640995200/192.168.1.100_screenshot_1.jpg',
+        'camera_screenshots_1640995200/192.168.1.100_screenshot_2.jpg'
+    ],
+    'access_urls': {
+        'web_interface': [
+            'http://admin:admin@192.168.1.100:80/',
+            'http://admin:admin@192.168.1.100:80/index.html'
+        ],
+        'streaming': [
+            'http://admin:admin@192.168.1.100:80/video.mjpg',
+            'http://admin:admin@192.168.1.100:80/stream'
+        ],
+        'snapshots': [
+            'http://admin:admin@192.168.1.100:80/snapshot.cgi',
+            'http://admin:admin@192.168.1.100:80/image'
+        ],
+        'control': [
+            'http://admin:admin@192.168.1.100:80/cgi-bin/ptz.cgi'
+        ]
+    },
+    'timestamp': 1640995200.0
+}
+```
+
 ## Comandos de Sistema Utilizados
 
 ### Nmap
@@ -350,9 +471,10 @@ def main():
 ## Consideraciones de Seguridad
 
 ### Simulación vs Realidad
-- El código actual **simula** la mayoría de ataques
-- Para uso real, reemplazar funciones `_simulate_*` con implementaciones reales
-- Usar herramientas como Hydra, Metasploit, etc.
+- El código actual ejecuta **ataques reales** (ya no simula)
+- Implementaciones reales con Hydra, Paramiko, urllib, etc.
+- Fuerza bruta real, explotación real, persistencia real
+- Cámaras IP: detección real, credenciales reales, screenshots reales
 
 ### Logging y Evidencia
 - Todos los resultados se almacenan en `self.report`
@@ -368,13 +490,16 @@ def main():
 
 ### Herramientas Requeridas
 - `nmap`: Escaneo de red
+- `hydra`: Ataques de fuerza bruta
 - `netcat`: Backdoors
+- `openssh-client`: Conexiones SSH
+- `smbclient`: Conexiones SMB
 - `ping`: Verificación de hosts
-- `ssh`: Conexiones remotas
 
 ### Python
 - Versión: 3.6+
-- Librerías: Solo estándar (subprocess, json, time, socket, etc.)
+- Librerías estándar: subprocess, json, time, socket, urllib, base64, etc.
+- Librerías externas: paramiko, netifaces
 
 ## Testing y Debugging
 
