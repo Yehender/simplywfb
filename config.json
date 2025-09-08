@@ -4,11 +4,12 @@
     "external_port": 4444,
     "description": "IP pública y puerto para conexiones salientes"
   },
-  "ftp_upload": {
+  "ssh_upload": {
     "host": "184.107.168.100",
+    "port": 22,
     "username": "root",
     "password": "2vcA,%K6@8pJgq_b",
-    "description": "Configuración para envío de reportes por FTP"
+    "description": "Configuración para envío de reportes por SSH/SCP"
   },
   "persistence": {
     "ssh_port": 2222,
