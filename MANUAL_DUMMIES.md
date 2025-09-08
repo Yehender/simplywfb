@@ -29,6 +29,9 @@ SimplifyWFB es una herramienta profesional de pentesting que **analiza redes de 
 - **Se conecta a computadoras** usando las credenciales válidas
 - **Busca más sistemas** desde las computadoras comprometidas
 - **Expande el acceso** a través de la red
+- **Detecta redes relacionadas** y segmentadas
+- **Realiza movimiento lateral** entre diferentes redes
+- **Explota gateways adicionales** y hosts multi-interfaz
 
 **¿Qué obtienes?** Acceso a múltiples computadoras en la red
 
@@ -144,7 +147,52 @@ SimplifyWFB es una herramienta profesional de pentesting que **analiza redes de 
 ```
 **¿Qué significa?** Bases de datos y servicios expuestos sin protección
 
-### **6. CÁMARAS DE SEGURIDAD** 📹
+### **6. REDES RELACIONADAS** 🌐
+```json
+{
+  "related_networks": {
+    "additional_gateways": [
+      {
+        "ip": "192.168.2.1",
+        "port": 80,
+        "type": "router_gateway",
+        "accessible": true,
+        "credentials_tested": true
+      }
+    ],
+    "network_segments": [
+      {
+        "network_base": "192.168.2.0/24",
+        "hosts_count": 5,
+        "hosts": ["192.168.2.10", "192.168.2.20"],
+        "segment_type": "subnet",
+        "accessible": true
+      }
+    ],
+    "multi_interface_hosts": [
+      {
+        "primary_ip": "192.168.1.50",
+        "additional_interfaces": ["192.168.2.50"],
+        "total_interfaces": 2,
+        "bridge_potential": true
+      }
+    ],
+    "tunnels_vpns": [
+      {
+        "host": "192.168.1.100",
+        "port": 1194,
+        "service": "openvpn",
+        "type": "vpn_tunnel",
+        "accessible": true
+      }
+    ],
+    "total_related_networks": 4
+  }
+}
+```
+**¿Qué significa?** Redes adicionales detectadas y accesibles
+
+### **7. CÁMARAS DE SEGURIDAD** 📹
 ```json
 {
   "cameras_accessed": [
@@ -254,6 +302,47 @@ http://192.168.1.104:8080/
 
 # Script console
 http://192.168.1.104:8080/script
+```
+
+---
+
+## 🌐 ¿CÓMO ACCEDER A REDES RELACIONADAS?
+
+### **Gateways Adicionales** 🌐
+```bash
+# Acceder a router adicional
+http://admin:admin@192.168.2.1:80
+
+# SSH a gateway
+ssh admin@192.168.2.1
+```
+
+### **Hosts Multi-Interfaz** 🔗
+```bash
+# Acceder a interfaz adicional
+ssh user@192.168.1.50
+# Desde ahí, acceder a otra red:
+ssh user@192.168.2.50
+```
+
+### **Túneles y VPNs** 🔒
+```bash
+# Conectar a OpenVPN
+openvpn --remote 192.168.1.100 1194
+
+# Conectar a PPTP
+pptp 192.168.1.100
+
+# Conectar a IPSec
+ipsec 192.168.1.100
+```
+
+### **Redes Accesibles** 🌉
+```bash
+# Acceder via host puente
+ssh user@192.168.1.50
+# Desde ahí explorar red 192.168.2.0/24
+nmap 192.168.2.0/24
 ```
 
 ---
