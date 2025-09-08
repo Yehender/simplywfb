@@ -3187,11 +3187,6 @@ WantedBy=multi-user.target
         # Auto-configuración de red antes del escaneo
         self.auto_configure_network()
         
-        # Confirmar inicio del escaneo
-        if not self._confirm_scan_start():
-            print("\n❌ Escaneo cancelado por el usuario")
-            return None
-        
         # Ejecutar todas las fases
         self.phase_1_reconnaissance()
         self.phase_2_credentials()
@@ -3213,11 +3208,6 @@ WantedBy=multi-user.target
         # Auto-configuración de red antes del escaneo
         self.auto_configure_network()
         
-        # Confirmar inicio del escaneo
-        if not self._confirm_scan_start():
-            print("\n❌ Pentest cancelado por el usuario")
-            return None
-        
         # Ejecutar todas las fases
         self.phase_1_reconnaissance()
         self.phase_2_credentials()
@@ -3232,40 +3222,6 @@ WantedBy=multi-user.target
         report_file = self.generate_report()
         return report_file
     
-    def _confirm_scan_start(self):
-        """Confirmar inicio del escaneo después de la auto-configuración"""
-        print("\n" + "=" * 60)
-        print("🚨 CONFIRMACIÓN DE INICIO DE ESCANEO")
-        print("=" * 60)
-        
-        # Mostrar información crítica
-        network_range = self.network_config.get('network_range', 'No detectada')
-        active_hosts = len(self.network_config.get('active_hosts', []))
-        estimated_duration = self.network_config.get('scan_parameters', {}).get('estimated_duration', 0)
-        
-        print(f"🌐 Red objetivo: {network_range}")
-        print(f"🔍 Hosts activos detectados: {active_hosts}")
-        print(f"⏱️ Duración estimada: {estimated_duration:.1f} segundos")
-        print(f"🧵 Threads configurados: {self.config.get('max_threads', 0)}")
-        print(f"🔌 Puertos a escanear: {len(self.config.get('common_ports', []))}")
-        
-        print("\n⚠️ ADVERTENCIAS:")
-        print("   • Este escaneo ejecutará ataques REALES")
-        print("   • Se intentará comprometer sistemas")
-        print("   • Se crearán usuarios y backdoors")
-        print("   • Solo use en redes autorizadas")
-        
-        print("\n" + "=" * 60)
-        
-        while True:
-            confirm = input("¿Desea continuar con el escaneo? (sí/no): ").strip().lower()
-            if confirm in ['sí', 'si', 'yes', 'y']:
-                print("\n✅ Confirmación recibida. Iniciando escaneo...")
-                return True
-            elif confirm in ['no', 'n']:
-                return False
-            else:
-                print("\n❌ Respuesta inválida. Por favor responda 'sí' o 'no'.")
     
     def _configure_network_persistence(self) -> List[Dict[str, Any]]:
         """Configurar persistencia de red completa"""
@@ -3405,34 +3361,8 @@ WantedBy=multi-user.target
 
 def main():
     """Función principal"""
-    print("🔧 SimplifyWFB - Script Simplificado de Pentesting")
+    print("🔧 SimplifyWFB - Herramienta Profesional de Pentesting")
     print("=" * 60)
-    print("⚠️  ADVERTENCIA CRÍTICA: HERRAMIENTA DE PENTESTING REAL")
-    print("=" * 60)
-    print("🚨 ESTE SCRIPT EJECUTA ATAQUES REALES:")
-    print("   • Fuerza bruta con Hydra")
-    print("   • Explotación real de credenciales")
-    print("   • Creación de usuarios persistentes")
-    print("   • Instalación de backdoors")
-    print("   • Acceso remoto a sistemas")
-    print("=" * 60)
-    print("⚠️  SOLO PARA USO AUTORIZADO Y EDUCATIVO")
-    print("⚠️  EL USO NO AUTORIZADO ES ILEGAL")
-    print("⚠️  OBTENGA PERMISO ESCRITO ANTES DE USAR")
-    print("⚠️  LOS DESARROLLADORES NO SE HACEN RESPONSABLES")
-    print("=" * 60)
-    
-    # Confirmación de responsabilidad
-    while True:
-        confirm = input("\n¿Confirma que tiene autorización legal para usar esta herramienta? (sí/no): ").strip().lower()
-        if confirm in ['sí', 'si', 'yes', 'y']:
-            print("\n✅ Confirmación recibida. Procediendo...")
-            break
-        elif confirm in ['no', 'n']:
-            print("\n❌ Uso cancelado. Esta herramienta requiere autorización legal.")
-            sys.exit(1)
-        else:
-            print("\n❌ Respuesta inválida. Por favor responda 'sí' o 'no'.")
     
     # Crear instancia
     wfb = SimplifyWFB()
@@ -3451,9 +3381,6 @@ def main():
             report_file = wfb.run_full_scan()
             if report_file:
                 print(f"\n✅ Escaneo completado. Reporte: {report_file}")
-                
-            else:
-                print("\n❌ Escaneo cancelado")
             break
             
         elif choice == '2':
@@ -3461,9 +3388,6 @@ def main():
             report_file = wfb.run_cold_pentest()
             if report_file:
                 print(f"\n✅ Pentest frío completado. Reporte: {report_file}")
-                
-            else:
-                print("\n❌ Pentest cancelado")
             break
             
         elif choice == '3':
