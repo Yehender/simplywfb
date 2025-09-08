@@ -1,20 +1,33 @@
 # SimplifyWFB - Dependencias de Python
-# Script simplificado de pentesting
+# Script simplificado de pentesting con funcionalidad REAL
 
-# No se requieren dependencias externas de Python
-# El script utiliza solo librerías estándar de Python 3.6+
+# Dependencias de Python requeridas:
+paramiko>=2.7.0
+netifaces>=0.11.0
+ftplib
+telnetlib
+urllib3>=1.26.0
 
 # Herramientas del sistema requeridas:
 # - nmap (para escaneo de red)
+# - hydra (para ataques de fuerza bruta)
 # - netcat (para backdoors)
 # - openssh-client (para conexiones SSH)
+# - smbclient (para conexiones SMB)
 # - ping (para descubrimiento de hosts)
+# - openssl (para generación de certificados)
+# - ssh-keygen (para generación de claves SSH)
+# - openvpn (para servidor VPN)
+# - nginx (para servidor web, opcional)
 
 # Instalación en Ubuntu/Debian:
-# sudo apt install nmap netcat-openbsd openssh-client
+# sudo apt install nmap hydra netcat-openbsd openssh-client smbclient openssl ssh-keygen openvpn nginx
 
 # Instalación en Kali Linux:
-# sudo apt install nmap netcat-traditional openssh-client
+# sudo apt install nmap hydra netcat-traditional openssh-client smbclient openssl ssh-keygen openvpn nginx
 
-# El script detecta automáticamente la configuración de red
-# y no requiere archivos de configuración adicionales
+# Instalación de dependencias Python:
+# pip install -r requirements.txt
+
+# ADVERTENCIA: Este script ejecuta ataques REALES
+# Solo use en sistemas que posea o tenga autorización explícita

