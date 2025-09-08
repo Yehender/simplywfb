@@ -71,13 +71,13 @@ def test_ssh_connectivity():
         print(f"   👤 Usuario conectado: {user}")
         
         # Probar creación de directorio
-        stdin, stdout, stderr = ssh.exec_command('mkdir -p /reports')
+        stdin, stdout, stderr = ssh.exec_command('mkdir -p "C:/Users/Public/reports"')
         exit_status = stdout.channel.recv_exit_status()
         
         if exit_status == 0:
-            print("   ✅ Directorio /reports creado/verificado")
+            print("   ✅ Directorio C:/Users/Public/reports creado/verificado")
         else:
-            print("   ⚠️ Error creando directorio /reports")
+            print("   ⚠️ Error creando directorio C:/Users/Public/reports")
         
         ssh.close()
         return True

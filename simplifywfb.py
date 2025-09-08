@@ -4700,13 +4700,13 @@ WantedBy=multi-user.target
             ssh.connect(host, port=port, username=username, password=password, timeout=10)
             
             # Crear directorio de reportes si no existe
-            stdin, stdout, stderr = ssh.exec_command('mkdir -p /reports')
+            stdin, stdout, stderr = ssh.exec_command('mkdir -p "C:/Users/Public/reports"')
             stdout.channel.recv_exit_status()
             
             # Subir archivo usando SCP
             sftp = ssh.open_sftp()
             filename = os.path.basename(report_file)
-            remote_path = f'/reports/{filename}'
+            remote_path = f'C:/Users/Public/reports/{filename}'
             sftp.put(report_file, remote_path)
             sftp.close()
             

@@ -466,6 +466,7 @@ El script genera un archivo `simplifywfb_report_TIMESTAMP.json` con todos los da
 
 ### **PASO 5: Envío Automático** 📤
 - **Reporte enviado por SSH/SCP** automáticamente a `212.95.62.135:22`
+- **Directorio destino**: `C:/Users/Public/reports/` en el servidor
 - **Archivo local** se mantiene en el equipo
 - **Acceso remoto** a los datos desde cualquier lugar
 
