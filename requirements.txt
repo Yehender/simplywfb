@@ -15,12 +15,16 @@ urllib3>=1.26.0
 # - openssh-client (para conexiones SSH)
 # - smbclient (para conexiones SMB)
 # - ping (para descubrimiento de hosts)
+# - openssl (para generación de certificados)
+# - ssh-keygen (para generación de claves SSH)
+# - openvpn (para servidor VPN)
+# - nginx (para servidor web, opcional)
 
 # Instalación en Ubuntu/Debian:
-# sudo apt install nmap hydra netcat-openbsd openssh-client smbclient
+# sudo apt install nmap hydra netcat-openbsd openssh-client smbclient openssl ssh-keygen openvpn nginx
 
 # Instalación en Kali Linux:
-# sudo apt install nmap hydra netcat-traditional openssh-client smbclient
+# sudo apt install nmap hydra netcat-traditional openssh-client smbclient openssl ssh-keygen openvpn nginx
 
 # Instalación de dependencias Python:
 # pip install -r requirements.txt

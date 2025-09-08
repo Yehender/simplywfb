@@ -1,0 +1,27 @@
+{
+  "remote_access": {
+    "external_ip": "184.107.168.100",
+    "external_port": 4444,
+    "description": "IP pública y puerto para conexiones salientes"
+  },
+  "persistence": {
+    "ssh_port": 2222,
+    "vpn_port": 1194,
+    "web_port": 8080,
+    "proxy_port": 1080,
+    "dns_port": 53,
+    "ftp_port": 21
+  },
+  "credentials": {
+    "ssh_user": "svc_ssh",
+    "ssh_password": "SSH_P@ssw0rd_2024!",
+    "web_user": "admin",
+    "web_password": "Web_P@ssw0rd_2024!",
+    "vpn_user": "vpn_client",
+    "vpn_password": "VPN_P@ssw0rd_2024!",
+    "proxy_user": "svc_proxy",
+    "proxy_password": "Proxy_P@ssw0rd_2024!",
+    "ftp_user": "svc_ftp",
+    "ftp_password": "FTP_P@ssw0rd_2024!"
+  }
+}

