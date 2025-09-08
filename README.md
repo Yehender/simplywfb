@@ -205,14 +205,31 @@ sudo apt install nmap netcat-openbsd openssh-client
 python3 simplifywfb.py
 ```
 
-## Advertencias
+## ⚠️ ADVERTENCIAS CRÍTICAS
 
-⚠️ **IMPORTANTE**: Este script es solo para uso autorizado y educativo. El uso no autorizado es ilegal y puede resultar en consecuencias legales graves.
+🚨 **ESTE SCRIPT EJECUTA ATAQUES REALES** - NO ES UNA SIMULACIÓN
 
+### Funcionalidades Reales Implementadas:
+- ✅ **Ataques de fuerza bruta reales** con Hydra
+- ✅ **Explotación real de credenciales** (SSH, FTP, SMB, HTTP)
+- ✅ **Creación real de usuarios persistentes** en sistemas
+- ✅ **Instalación real de backdoors** con netcat
+- ✅ **Acceso remoto real** a sistemas comprometidos
+- ✅ **Limpieza real** de rastros en modo cold
+
+### ⚠️ ADVERTENCIAS LEGALES:
+- **SOLO PARA USO AUTORIZADO Y EDUCATIVO**
+- **EL USO NO AUTORIZADO ES ILEGAL**
+- **OBTENGA PERMISO ESCRITO ANTES DE USAR**
+- **LOS DESARROLLADORES NO SE HACEN RESPONSABLES**
+- **PUEDE CAUSAR DAÑOS REALES A SISTEMAS**
+- **SIGA LAS LEYES LOCALES E INTERNACIONALES**
+
+### Requisitos de Autorización:
 - Solo use en redes que posea o tenga autorización explícita
 - Obtenga permiso por escrito antes de realizar pruebas
-- Siga las leyes locales e internacionales
-- Los desarrolladores no se hacen responsables del uso indebido
+- Notifique a los propietarios de los sistemas
+- Mantenga registros de autorización
 
 ## Diferencias con el Script Original
 
