@@ -515,7 +515,24 @@ pip3 install paramiko
 ```
 
 ### **Problema**: Error de conexión SSH
-**Solución**: El script intentará envío por HTTP como alternativa
+**Solución**: 
+```bash
+# Ejecutar diagnóstico de conectividad
+python3 test_connectivity.py
+
+# Verificar credenciales en config.json
+# El script intentará envío por HTTP como alternativa
+```
+
+### **Problema**: "No such file" al enviar reporte
+**Solución**: 
+```bash
+# Verificar que el reporte se generó
+ls -la simplifywfb_report_*.json
+
+# Si no existe, ejecutar el script nuevamente
+python3 simplifywfb.py
+```
 
 ---
 

