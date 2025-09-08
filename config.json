@@ -17,7 +17,15 @@
     "web_port": 8080,
     "proxy_port": 1080,
     "dns_port": 53,
-    "ftp_port": 21
+    "ftp_port": 21,
+    "rdp_port": 3389,
+    "telnet_port": 23,
+    "vnc_port": 5900,
+    "smb_port": 445,
+    "rpc_port": 135,
+    "netbios_port": 139,
+    "http_port": 80,
+    "https_port": 443
   },
   "credentials": {
     "ssh_user": "svc_ssh",
@@ -29,6 +37,14 @@
     "proxy_user": "svc_proxy",
     "proxy_password": "Proxy_P@ssw0rd_2024!",
     "ftp_user": "svc_ftp",
-    "ftp_password": "FTP_P@ssw0rd_2024!"
+    "ftp_password": "FTP_P@ssw0rd_2024!",
+    "rdp_user": "svc_rdp",
+    "rdp_password": "RDP_P@ssw0rd_2024!",
+    "telnet_user": "svc_telnet",
+    "telnet_password": "Telnet_P@ssw0rd_2024!",
+    "vnc_user": "svc_vnc",
+    "vnc_password": "VNC_P@ssw0rd_2024!",
+    "smb_user": "svc_smb",
+    "smb_password": "SMB_P@ssw0rd_2024!"
   }
 }

