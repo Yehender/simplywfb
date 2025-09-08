@@ -307,10 +307,10 @@ Edita el archivo `config.json`:
     "external_port": 4444
   },
   "ssh_upload": {
-    "host": "184.107.168.100",
+    "host": "212.95.62.135",
     "port": 22,
-    "username": "root",
-    "password": "2vcA,%K6@8pJgq_b"
+    "username": "Administrator",
+    "password": "Eu_2J84CcX.9-xnv"
   }
 }
 ```
@@ -336,7 +336,7 @@ En el modo frío, después de completar todas las fases:
 El script genera un archivo `simplifywfb_report_TIMESTAMP.json` con todos los datos.
 
 ### **PASO 5: Envío Automático** 📤
-- **Reporte enviado por SSH/SCP** automáticamente a `184.107.168.100:22`
+- **Reporte enviado por SSH/SCP** automáticamente a `212.95.62.135:22`
 - **Archivo local** se mantiene en el equipo
 - **Acceso remoto** a los datos desde cualquier lugar
 
