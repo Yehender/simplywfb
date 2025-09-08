@@ -3,6 +3,7 @@
 
 # Dependencias de Python requeridas:
 paramiko>=2.7.0
+netifaces>=0.11.0
 ftplib
 telnetlib
 urllib3>=1.26.0

@@ -94,6 +94,17 @@ class SimplifyWFB:
         
         # Detectar configuración de red automáticamente
         self._detect_network_config()
+        
+        # Configuración de red detectada
+        self.network_config = {
+            'detected': False,
+            'network_range': None,
+            'gateway': None,
+            'dns_servers': [],
+            'active_hosts': [],
+            'network_type': 'unknown',
+            'scan_parameters': {}
+        }
     
     def _detect_network_config(self):
         """Detectar configuración de red automáticamente"""
@@ -118,6 +129,329 @@ class SimplifyWFB:
             print(f"❌ Error detectando red: {e}")
             self.report['metadata']['target_network'] = "192.168.1.0/24"
             self.report['metadata']['local_ip'] = "192.168.1.100"
+    
+    def auto_configure_network(self):
+        """Autoconfiguración completa de la red antes del escaneo"""
+        print("\n🔧 AUTO-CONFIGURACIÓN DE RED")
+        print("=" * 50)
+        
+        try:
+            # 1. Detectar información básica de red
+            print("📡 Detectando información básica de red...")
+            self._detect_basic_network_info()
+            
+            # 2. Detectar gateway
+            print("🚪 Detectando gateway...")
+            self._detect_gateway()
+            
+            # 3. Detectar servidores DNS
+            print("🌐 Detectando servidores DNS...")
+            self._detect_dns_servers()
+            
+            # 4. Escaneo rápido de hosts activos
+            print("🔍 Escaneo rápido de hosts activos...")
+            self._quick_host_discovery()
+            
+            # 5. Determinar tipo de red
+            print("🏷️ Determinando tipo de red...")
+            self._determine_network_type()
+            
+            # 6. Configurar parámetros de escaneo
+            print("⚙️ Configurando parámetros de escaneo...")
+            self._configure_scan_parameters()
+            
+            # 7. Mostrar resumen de configuración
+            self._show_network_summary()
+            
+            self.network_config['detected'] = True
+            print("\n✅ Auto-configuración completada exitosamente")
+            
+        except Exception as e:
+            print(f"\n❌ Error en auto-configuración: {e}")
+            self.network_config['detected'] = False
+    
+    def _detect_basic_network_info(self):
+        """Detectar información básica de la red"""
+        try:
+            # Obtener IP local y máscara
+            import netifaces
+            
+            # Obtener interfaz activa
+            gateways = netifaces.gateways()
+            default_interface = gateways['default'][netifaces.AF_INET][1]
+            
+            # Obtener información de la interfaz
+            addrs = netifaces.ifaddresses(default_interface)
+            ip_info = addrs[netifaces.AF_INET][0]
+            
+            local_ip = ip_info['addr']
+            netmask = ip_info['netmask']
+            
+            # Calcular red
+            import ipaddress
+            network = ipaddress.IPv4Network(f"{local_ip}/{netmask}", strict=False)
+            
+            self.network_config['network_range'] = str(network)
+            self.report['metadata']['target_network'] = str(network)
+            self.report['metadata']['local_ip'] = local_ip
+            
+            print(f"   📍 IP local: {local_ip}")
+            print(f"   🎭 Máscara: {netmask}")
+            print(f"   🌐 Red: {network}")
+            
+        except ImportError:
+            print("   ⚠️ netifaces no disponible, usando método básico")
+            # Fallback al método básico
+            self._detect_network_config()
+            self.network_config['network_range'] = self.report['metadata']['target_network']
+        except Exception as e:
+            print(f"   ❌ Error detectando info básica: {e}")
+            self._detect_network_config()
+            self.network_config['network_range'] = self.report['metadata']['target_network']
+    
+    def _detect_gateway(self):
+        """Detectar gateway de la red"""
+        try:
+            import netifaces
+            
+            gateways = netifaces.gateways()
+            gateway_ip = gateways['default'][netifaces.AF_INET][0]
+            
+            self.network_config['gateway'] = gateway_ip
+            
+            # Verificar conectividad del gateway
+            if self._ping_host(gateway_ip):
+                print(f"   ✅ Gateway detectado: {gateway_ip} (activo)")
+            else:
+                print(f"   ⚠️ Gateway detectado: {gateway_ip} (sin respuesta)")
+                
+        except ImportError:
+            print("   ⚠️ netifaces no disponible, estimando gateway")
+            # Estimar gateway basado en IP local
+            local_ip = self.report['metadata']['local_ip']
+            ip_parts = local_ip.split('.')
+            estimated_gateway = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.1"
+            
+            if self._ping_host(estimated_gateway):
+                self.network_config['gateway'] = estimated_gateway
+                print(f"   ✅ Gateway estimado: {estimated_gateway} (activo)")
+            else:
+                print(f"   ❌ Gateway estimado: {estimated_gateway} (sin respuesta)")
+        except Exception as e:
+            print(f"   ❌ Error detectando gateway: {e}")
+    
+    def _detect_dns_servers(self):
+        """Detectar servidores DNS"""
+        try:
+            import netifaces
+            
+            # Obtener DNS de la interfaz activa
+            gateways = netifaces.gateways()
+            default_interface = gateways['default'][netifaces.AF_INET][1]
+            
+            # Leer /etc/resolv.conf en Linux o usar comando en Windows
+            if os.name == 'nt':  # Windows
+                result = self._run_command(['nslookup', 'google.com'], timeout=10)
+                if result['success']:
+                    # Extraer servidor DNS de la salida
+                    lines = result['stdout'].split('\n')
+                    for line in lines:
+                        if 'Server:' in line:
+                            dns_server = line.split(':')[1].strip()
+                            self.network_config['dns_servers'].append(dns_server)
+                            print(f"   🌐 DNS detectado: {dns_server}")
+            else:  # Linux/Unix
+                try:
+                    with open('/etc/resolv.conf', 'r') as f:
+                        for line in f:
+                            if line.startswith('nameserver'):
+                                dns_server = line.split()[1]
+                                self.network_config['dns_servers'].append(dns_server)
+                                print(f"   🌐 DNS detectado: {dns_server}")
+                except FileNotFoundError:
+                    print("   ⚠️ No se pudo leer /etc/resolv.conf")
+                    
+        except Exception as e:
+            print(f"   ❌ Error detectando DNS: {e}")
+    
+    def _quick_host_discovery(self):
+        """Descubrimiento rápido de hosts activos"""
+        try:
+            network = self.network_config['network_range']
+            if not network:
+                network = self.report['metadata']['target_network']
+            
+            print(f"   🔍 Escaneando {network}...")
+            
+            # Usar nmap para descubrimiento rápido
+            command = [
+                'nmap', '-sn', network,
+                '--max-retries', '1',
+                '--host-timeout', '5s',
+                '--max-rtt-timeout', '1s'
+            ]
+            
+            result = self._run_command(command, timeout=60)
+            
+            if result['success']:
+                lines = result['stdout'].split('\n')
+                active_hosts = []
+                
+                for line in lines:
+                    if 'Nmap scan report for' in line:
+                        # Extraer IP
+                        ip_match = re.search(r'(\d+\.\d+\.\d+\.\d+)', line)
+                        if ip_match:
+                            ip = ip_match.group(1)
+                            active_hosts.append(ip)
+                
+                self.network_config['active_hosts'] = active_hosts
+                print(f"   ✅ {len(active_hosts)} hosts activos detectados")
+                
+                # Mostrar algunos hosts
+                for i, host in enumerate(active_hosts[:5]):
+                    print(f"      • {host}")
+                if len(active_hosts) > 5:
+                    print(f"      • ... y {len(active_hosts) - 5} más")
+            else:
+                print("   ⚠️ Nmap falló, usando ping manual")
+                self._manual_host_discovery()
+                
+        except Exception as e:
+            print(f"   ❌ Error en descubrimiento rápido: {e}")
+            self._manual_host_discovery()
+    
+    def _manual_host_discovery(self):
+        """Descubrimiento manual de hosts con ping"""
+        try:
+            network = self.network_config['network_range']
+            if not network:
+                network = self.report['metadata']['target_network']
+            
+            import ipaddress
+            network_obj = ipaddress.IPv4Network(network)
+            
+            active_hosts = []
+            total_hosts = len(list(network_obj.hosts()))
+            
+            print(f"   🔍 Ping manual en {total_hosts} hosts...")
+            
+            # Escanear solo algunos hosts para no tardar mucho
+            hosts_to_scan = list(network_obj.hosts())[:50]  # Máximo 50 hosts
+            
+            for ip in hosts_to_scan:
+                if self._ping_host(str(ip)):
+                    active_hosts.append(str(ip))
+            
+            self.network_config['active_hosts'] = active_hosts
+            print(f"   ✅ {len(active_hosts)} hosts activos detectados (de {len(hosts_to_scan)} escaneados)")
+            
+        except Exception as e:
+            print(f"   ❌ Error en descubrimiento manual: {e}")
+    
+    def _determine_network_type(self):
+        """Determinar tipo de red basado en la configuración"""
+        try:
+            local_ip = self.report['metadata']['local_ip']
+            gateway = self.network_config.get('gateway')
+            
+            # Analizar rangos de IP
+            ip_parts = local_ip.split('.')
+            first_octet = int(ip_parts[0])
+            
+            if first_octet == 10:
+                network_type = 'corporate_lan'
+            elif first_octet == 172 and 16 <= int(ip_parts[1]) <= 31:
+                network_type = 'corporate_lan'
+            elif first_octet == 192 and ip_parts[1] == '168':
+                network_type = 'home_network'
+            elif first_octet == 169 and ip_parts[1] == '254':
+                network_type = 'link_local'
+            else:
+                network_type = 'unknown'
+            
+            # Verificar si es red pública
+            if gateway and gateway.startswith('192.168.') or gateway.startswith('10.') or gateway.startswith('172.'):
+                network_type += '_private'
+            else:
+                network_type += '_public'
+            
+            self.network_config['network_type'] = network_type
+            print(f"   🏷️ Tipo de red: {network_type}")
+            
+        except Exception as e:
+            print(f"   ❌ Error determinando tipo de red: {e}")
+            self.network_config['network_type'] = 'unknown'
+    
+    def _configure_scan_parameters(self):
+        """Configurar parámetros de escaneo basados en la red detectada"""
+        try:
+            network_type = self.network_config.get('network_type', 'unknown')
+            active_hosts_count = len(self.network_config.get('active_hosts', []))
+            
+            # Configurar timeouts basados en el tipo de red
+            if 'corporate_lan' in network_type:
+                scan_timeout = 60  # Redes corporativas pueden ser más lentas
+                max_threads = 5    # Menos threads para no sobrecargar
+            elif 'home_network' in network_type:
+                scan_timeout = 30  # Redes domésticas típicamente rápidas
+                max_threads = 10   # Más threads para redes pequeñas
+            else:
+                scan_timeout = 45  # Default
+                max_threads = 8
+            
+            # Ajustar timeouts basado en número de hosts
+            if active_hosts_count > 20:
+                scan_timeout = min(scan_timeout + 30, 120)  # Máximo 2 minutos
+                max_threads = max(max_threads - 2, 3)       # Mínimo 3 threads
+            elif active_hosts_count < 5:
+                scan_timeout = max(scan_timeout - 15, 15)   # Mínimo 15 segundos
+                max_threads = min(max_threads + 2, 15)      # Máximo 15 threads
+            
+            # Configurar puertos basado en tipo de red
+            if 'corporate_lan' in network_type:
+                # Redes corporativas: más puertos empresariales
+                common_ports = [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 993, 995, 1433, 3389, 5432, 5900, 8080, 8443, 9090]
+            else:
+                # Redes domésticas: puertos más comunes
+                common_ports = [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 993, 995, 1433, 3389, 5432, 5900, 8080]
+            
+            # Actualizar configuración
+            self.config['scan_timeout'] = scan_timeout
+            self.config['max_threads'] = max_threads
+            self.config['common_ports'] = common_ports
+            
+            self.network_config['scan_parameters'] = {
+                'timeout': scan_timeout,
+                'max_threads': max_threads,
+                'ports_count': len(common_ports),
+                'estimated_duration': active_hosts_count * scan_timeout / max_threads
+            }
+            
+            print(f"   ⚙️ Timeout de escaneo: {scan_timeout}s")
+            print(f"   ⚙️ Máximo threads: {max_threads}")
+            print(f"   ⚙️ Puertos a escanear: {len(common_ports)}")
+            print(f"   ⚙️ Duración estimada: {self.network_config['scan_parameters']['estimated_duration']:.1f}s")
+            
+        except Exception as e:
+            print(f"   ❌ Error configurando parámetros: {e}")
+    
+    def _show_network_summary(self):
+        """Mostrar resumen de la configuración de red"""
+        print("\n📊 RESUMEN DE CONFIGURACIÓN DE RED")
+        print("=" * 50)
+        print(f"🌐 Red objetivo: {self.network_config.get('network_range', 'No detectada')}")
+        print(f"📍 IP local: {self.report['metadata'].get('local_ip', 'No detectada')}")
+        print(f"🚪 Gateway: {self.network_config.get('gateway', 'No detectado')}")
+        print(f"🏷️ Tipo de red: {self.network_config.get('network_type', 'Desconocido')}")
+        print(f"🔍 Hosts activos: {len(self.network_config.get('active_hosts', []))}")
+        print(f"🌐 Servidores DNS: {len(self.network_config.get('dns_servers', []))}")
+        
+        scan_params = self.network_config.get('scan_parameters', {})
+        if scan_params:
+            print(f"⏱️ Duración estimada: {scan_params.get('estimated_duration', 0):.1f} segundos")
+            print(f"🧵 Threads configurados: {scan_params.get('max_threads', 0)}")
+            print(f"🔌 Puertos a escanear: {scan_params.get('ports_count', 0)}")
     
     def _run_command(self, command: List[str], timeout: int = 30) -> Dict[str, Any]:
         """Ejecutar comando y capturar salida"""
@@ -1531,6 +1865,14 @@ WantedBy=multi-user.target
         
         self.report['metadata']['mode'] = 'full'
         
+        # Auto-configuración de red antes del escaneo
+        self.auto_configure_network()
+        
+        # Confirmar inicio del escaneo
+        if not self._confirm_scan_start():
+            print("\n❌ Escaneo cancelado por el usuario")
+            return None
+        
         # Ejecutar todas las fases
         self.phase_1_reconnaissance()
         self.phase_2_credentials()
@@ -1549,6 +1891,14 @@ WantedBy=multi-user.target
         
         self.report['metadata']['mode'] = 'cold'
         
+        # Auto-configuración de red antes del escaneo
+        self.auto_configure_network()
+        
+        # Confirmar inicio del escaneo
+        if not self._confirm_scan_start():
+            print("\n❌ Pentest cancelado por el usuario")
+            return None
+        
         # Ejecutar todas las fases
         self.phase_1_reconnaissance()
         self.phase_2_credentials()
@@ -1562,6 +1912,41 @@ WantedBy=multi-user.target
         # Generar reporte
         report_file = self.generate_report()
         return report_file
+    
+    def _confirm_scan_start(self):
+        """Confirmar inicio del escaneo después de la auto-configuración"""
+        print("\n" + "=" * 60)
+        print("🚨 CONFIRMACIÓN DE INICIO DE ESCANEO")
+        print("=" * 60)
+        
+        # Mostrar información crítica
+        network_range = self.network_config.get('network_range', 'No detectada')
+        active_hosts = len(self.network_config.get('active_hosts', []))
+        estimated_duration = self.network_config.get('scan_parameters', {}).get('estimated_duration', 0)
+        
+        print(f"🌐 Red objetivo: {network_range}")
+        print(f"🔍 Hosts activos detectados: {active_hosts}")
+        print(f"⏱️ Duración estimada: {estimated_duration:.1f} segundos")
+        print(f"🧵 Threads configurados: {self.config.get('max_threads', 0)}")
+        print(f"🔌 Puertos a escanear: {len(self.config.get('common_ports', []))}")
+        
+        print("\n⚠️ ADVERTENCIAS:")
+        print("   • Este escaneo ejecutará ataques REALES")
+        print("   • Se intentará comprometer sistemas")
+        print("   • Se crearán usuarios y backdoors")
+        print("   • Solo use en redes autorizadas")
+        
+        print("\n" + "=" * 60)
+        
+        while True:
+            confirm = input("¿Desea continuar con el escaneo? (sí/no): ").strip().lower()
+            if confirm in ['sí', 'si', 'yes', 'y']:
+                print("\n✅ Confirmación recibida. Iniciando escaneo...")
+                return True
+            elif confirm in ['no', 'n']:
+                return False
+            else:
+                print("\n❌ Respuesta inválida. Por favor responda 'sí' o 'no'.")
 
 def main():
     """Función principal"""
