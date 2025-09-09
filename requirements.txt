@@ -1,31 +1,48 @@
-# SimplifyWFB - Dependencias de Python
-# Script simplificado de pentesting con funcionalidad REAL
+# Advanced Red Team Tool - Dependencias de Python
+# Instalar con: pip install -r requirements.txt
 
-# Dependencias de Python requeridas:
-paramiko>=2.7.0
-netifaces>=0.11.0
-urllib3>=1.26.0
+# Dependencias principales
+paramiko>=2.11.0          # SSH connections y tunneling
+dnspython>=2.2.0          # DNS tunneling y resolución
+requests>=2.28.0          # HTTP requests para APIs y web
+psutil>=5.9.0             # Información del sistema
+cryptography>=3.4.8       # Cifrado y seguridad
+scapy>=2.4.5              # Manipulación de paquetes de red
+netaddr>=0.8.0            # Manipulación de direcciones IP
+python-nmap>=0.7.1        # Wrapper para nmap
+impacket>=0.10.0          # Protocolos de red de Windows
+pycryptodome>=3.15.0      # Criptografía avanzada
 
-# Herramientas del sistema requeridas:
-# - nmap (para escaneo de red)
-# - hydra (para ataques de fuerza bruta)
-# - netcat (para backdoors)
-# - openssh-client (para conexiones SSH)
-# - smbclient (para conexiones SMB)
-# - ping (para descubrimiento de hosts)
-# - openssl (para generación de certificados)
-# - ssh-keygen (para generación de claves SSH)
-# - openvpn (para servidor VPN)
-# - nginx (para servidor web, opcional)
+# Dependencias para funcionalidades reales
+netifaces>=0.11.0         # Información de interfaces de red
+pymysql>=1.0.2            # Conexiones MySQL
+psycopg2-binary>=2.9.0    # Conexiones PostgreSQL
+pymongo>=4.0.0            # Conexiones MongoDB
+redis>=4.0.0              # Conexiones Redis
 
-# Instalación en Ubuntu/Debian:
-# sudo apt install nmap hydra netcat-openbsd openssh-client smbclient openssl ssh-keygen openvpn nginx
+# Dependencias para reconocimiento
+netifaces>=0.11.0         # Información de interfaces de red
+python-whois>=0.7.2       # Consultas WHOIS
+shodan>=1.28.0            # API de Shodan (opcional)
+censys>=2.0.0             # API de Censys (opcional)
 
-# Instalación en Kali Linux:
-# sudo apt install nmap hydra netcat-traditional openssh-client smbclient openssl ssh-keygen openvpn nginx
+# Dependencias para explotación
+colorama>=0.4.4           # Colores en terminal
+tqdm>=4.64.0              # Barras de progreso
+rich>=12.5.0              # Output enriquecido
+click>=8.1.0              # CLI mejorado
 
-# Instalación de dependencias Python:
-# pip install -r requirements.txt
+# Dependencias para reportes
+jinja2>=3.1.0             # Templates para reportes
+matplotlib>=3.5.0         # Gráficos y visualizaciones
+seaborn>=0.11.0           # Visualizaciones estadísticas
+pandas>=1.4.0             # Manipulación de datos
 
-# ADVERTENCIA: Este script ejecuta ataques REALES
-# Solo use en sistemas que posea o tenga autorización explícita
+# Dependencias opcionales para funcionalidades avanzadas
+# Descomenta según necesidades:
+# selenium>=4.5.0         # Automatización web
+# beautifulsoup4>=4.11.0  # Parsing HTML
+# lxml>=4.9.0             # XML/HTML parsing
+# pillow>=9.2.0           # Procesamiento de imágenes
+# opencv-python>=4.6.0    # Procesamiento de video/imágenes
+# ffmpeg-python>=0.2.0    # Procesamiento de video

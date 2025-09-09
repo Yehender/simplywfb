@@ -21,6 +21,7 @@ class BackdoorTester:
             'ssh_connections': [],
             'router_access': [],
             'network_services': [],
+            'reverse_shells': [],
             'vulnerable_services': [],
             'camera_backdoors': [],
             'summary': {
@@ -47,6 +48,33 @@ class BackdoorTester:
         except Exception as e:
             print(f"❌ Error cargando reporte: {e}")
             return False
+    
+    def test_port_open(self, host: str, port: int) -> Dict[str, Any]:
+        """Probar si un puerto está abierto"""
+        result = {
+            'host': host,
+            'port': port,
+            'status': 'failed',
+            'error': None,
+            'timestamp': time.time()
+        }
+        
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            connection_result = sock.connect_ex((host, port))
+            sock.close()
+            
+            if connection_result == 0:
+                result['status'] = 'success'
+                result['type'] = 'port_open'
+            else:
+                result['error'] = f"Puerto {port} no accesible en {host}"
+                
+        except Exception as e:
+            result['error'] = f"Error probando puerto: {str(e)}"
+            
+        return result
     
     def test_ssh_connection(self, host: str, port: int, username: str, password: str) -> Dict[str, Any]:
         """Probar conexión SSH"""
@@ -180,50 +208,95 @@ class BackdoorTester:
         result = {
             'service': service['service'],
             'port': service['port'],
-            'enabled': service['enabled'],
-            'users': service['users'],
+            'enabled': service.get('enabled', True),
+            'users': service.get('users', []),
             'status': 'failed',
             'error': None,
             'timestamp': time.time()
         }
         
-        if not service['enabled']:
+        if not service.get('enabled', True):
             result['error'] = "Servicio deshabilitado"
             return result
             
         try:
-            # Obtener el primer usuario para la prueba
-            if service['users']:
+            # Para backdoors externos, usar la IP externa del reporte
+            host = "212.95.62.135"  # IP externa de los backdoors
+            
+            # Obtener credenciales si existen
+            username = None
+            password = None
+            
+            if 'users' in service and service['users']:
                 user = service['users'][0]
                 username = user['username']
                 password = user['password']
-                
-                # Determinar el host (asumir localhost para servicios de red)
-                host = "127.0.0.1"  # Servicios locales
-                
-                if service['service'] == 'ssh':
+            elif 'credentials' in service:
+                username = service['credentials']['username']
+                password = service['credentials']['password']
+            
+            if service['service'] == 'ssh':
+                if username and password:
                     ssh_result = self.test_ssh_connection(host, service['port'], username, password)
                     result.update(ssh_result)
-                elif service['service'] in ['http', 'web']:
+                else:
+                    result['error'] = "No hay credenciales SSH configuradas"
+            elif service['service'] in ['http', 'web']:
+                if username and password:
                     http_result = self.test_http_connection(host, service['port'], username, password)
                     result.update(http_result)
                 else:
-                    # Probar conectividad básica para otros servicios
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(2)
-                    connection_result = sock.connect_ex((host, service['port']))
-                    sock.close()
-                    
-                    if connection_result == 0:
-                        result['status'] = 'success'
-                        result['type'] = service['service']
-                    else:
-                        result['error'] = f"Puerto {service['port']} no accesible"
+                    # Probar conectividad básica sin credenciales
+                    port_result = self.test_port_open(host, service['port'])
+                    result.update(port_result)
+            elif service['service'] == 'openvpn':
+                # Para VPN, solo verificar que el puerto esté abierto
+                port_result = self.test_port_open(host, service['port'])
+                result.update(port_result)
             else:
-                result['error'] = "No hay usuarios configurados"
+                # Probar conectividad básica para otros servicios (RDP, FTP, Telnet, VNC, SMB)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                connection_result = sock.connect_ex((host, service['port']))
+                sock.close()
+                
+                if connection_result == 0:
+                    result['status'] = 'success'
+                    result['type'] = service['service']
+                    result['host'] = host
+                    if username and password:
+                        result['credentials'] = {'username': username, 'password': password}
+                else:
+                    result['error'] = f"Puerto {service['port']} no accesible en {host}"
                 
         except Exception as e:
             result['error'] = f"Error probando servicio: {str(e)}"
+            
+        return result
+    
+    def test_reverse_shell(self, reverse_shell: Dict[str, Any]) -> Dict[str, Any]:
+        """Probar reverse shell"""
+        result = {
+            'port': reverse_shell['port'],
+            'external_ip': reverse_shell.get('external_ip', '212.95.62.135'),
+            'status': 'failed',
+            'error': None,
+            'timestamp': time.time()
+        }
+        
+        try:
+            # Probar conectividad al puerto del reverse shell
+            port_result = self.test_port_open(reverse_shell['external_ip'], reverse_shell['port'])
+            
+            if port_result['status'] == 'success':
+                result['status'] = 'success'
+                result['type'] = 'reverse_shell'
+                result['access_methods'] = reverse_shell.get('access_methods', [])
+            else:
+                result['error'] = port_result['error']
+                
+        except Exception as e:
+            result['error'] = f"Error probando reverse shell: {str(e)}"
             
         return result
     
@@ -408,8 +481,24 @@ class BackdoorTester:
                 print(f"   ❌ Servicio inactivo: {result['error']}")
                 self.results['summary']['failed'] += 1
         
-        # 4. Probar servicios vulnerables con backdoors
-        print("\n4️⃣ PROBANDO SERVICIOS VULNERABLES CON BACKDOORS")
+        # 4. Probar reverse shells
+        print("\n4️⃣ PROBANDO REVERSE SHELLS")
+        reverse_shells = [service for service in network_persistence if service.get('service') == 'reverse_shell']
+        for reverse_shell in reverse_shells:
+            print(f"   🔍 Probando reverse shell puerto {reverse_shell['port']}")
+            result = self.test_reverse_shell(reverse_shell)
+            self.results['reverse_shells'].append(result)
+            self.results['summary']['total_tested'] += 1
+            
+            if result['status'] == 'success':
+                print(f"   ✅ Reverse shell activo: puerto {reverse_shell['port']}")
+                self.results['summary']['successful'] += 1
+            else:
+                print(f"   ❌ Reverse shell inactivo: {result['error']}")
+                self.results['summary']['failed'] += 1
+        
+        # 5. Probar servicios vulnerables con backdoors
+        print("\n5️⃣ PROBANDO SERVICIOS VULNERABLES CON BACKDOORS")
         vulnerable_backdoors = self.report_data.get('phase_4_persistence', {}).get('vulnerable_backdoors', [])
         for backdoor in vulnerable_backdoors:
             print(f"   🔍 Probando {backdoor['service']} en {backdoor['host']}:{backdoor['port']}")

