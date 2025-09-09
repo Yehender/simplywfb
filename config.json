@@ -56,10 +56,15 @@
       "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\"
     ],
     "scan_evasion": {
-      "nmap_options": "-sS -T2 --scan-delay 1-3 --randomize-hosts",
-      "decoy_ips": "RND:10",
-      "fragment_packets": true,
-      "spoof_mac": true
+      "nmap_options": "-sS -T4 -A --top-ports 200 --version-intensity 5 --script vuln,default,auth",
+      "decoy_ips": "RND:5",
+      "fragment_packets": false,
+      "spoof_mac": true,
+      "target_priority": {
+        "high_value_targets": ["192.168.1.1", "192.168.1.218", "192.168.1.241", "192.168.1.242", "192.168.1.251", "192.168.1.252", "192.168.1.253", "192.168.1.254"],
+        "scan_intensity": "aggressive",
+        "service_detection": "comprehensive"
+      }
     }
   },
   "persistence": {
@@ -154,6 +159,12 @@
     "vnc_user": "svc_vnc",
     "vnc_password": "VNC_P@ssw0rd_2024!",
     "smb_user": "svc_smb",
-    "smb_password": "SMB_P@ssw0rd_2024!"
+    "smb_password": "SMB_P@ssw0rd_2024!",
+    "router_users_huawei": ["admin", "root", "user", "telecomadmin", "support", "huawei", "guest"],
+    "router_passwords_huawei": ["admin", "admintelecom", "1234", "12345", "support", "", "huawei", "telecomadmin", "admin123", "password"],
+    "camera_users_ezviz": ["admin", "user", "guest", "test", "ezviz", "hikvision", "viewer"],
+    "camera_passwords_ezviz": ["admin", "12345", "123456", "test", "1111", "888888", "ezviz", "hikvision", "1234", "admin123", "password", ""],
+    "tplink_users": ["admin", "root", "user", "guest", "tplink"],
+    "tplink_passwords": ["admin", "1234", "12345", "123456", "tplink", "password", "", "admin123"]
   }
 }

