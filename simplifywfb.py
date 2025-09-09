@@ -4871,14 +4871,14 @@ WantedBy=multi-user.target
             'strategic_objectives': {
                 'router_compromise': {
                     'target': 'Router Principal (Gateway)',
-                    'success': len(self.report['phase_4_persistence']['router_access']) > 0,
-                    'details': self.report['phase_4_persistence']['router_access'],
+                    'success': len(self.report['phase_4_persistence'].get('router_access', [])) > 0,
+                    'details': self.report['phase_4_persistence'].get('router_access', []),
                     'impact': 'CRITICAL - Control total de red'
                 },
                 'camera_access': {
                     'target': 'Cámaras de Seguridad',
-                    'success': len(self.report['phase_4_persistence']['cameras_accessed']) > 0,
-                    'details': self.report['phase_4_persistence']['cameras_accessed'],
+                    'success': len(self.report['phase_4_persistence'].get('cameras_accessed', [])) > 0,
+                    'details': self.report['phase_4_persistence'].get('cameras_accessed', []),
                     'impact': 'HIGH - Vigilancia y pivoting'
                 },
                 'external_backdoors': {
@@ -4889,8 +4889,8 @@ WantedBy=multi-user.target
                 },
                 'port_forwarding': {
                     'target': 'Port Forwarding',
-                    'success': any(router.get('configuration', {}).get('port_forwarding') for router in self.report['phase_4_persistence']['router_access']),
-                    'details': [router.get('configuration', {}).get('port_forwarding', []) for router in self.report['phase_4_persistence']['router_access']],
+                    'success': any(router and router.get('configuration', {}).get('port_forwarding') for router in self.report['phase_4_persistence'].get('router_access', [])),
+                    'details': [router.get('configuration', {}).get('port_forwarding', []) for router in self.report['phase_4_persistence'].get('router_access', []) if router],
                     'impact': 'HIGH - Exposición de servicios internos'
                 }
             },
@@ -4987,7 +4987,7 @@ WantedBy=multi-user.target
         self.report['summary']['persistent_access_points'] = len(self.report['phase_4_persistence']['users_created']) + len(self.report['phase_4_persistence']['backdoors_created'])
         self.report['summary']['total_credentials'] = len(self.report['phase_2_credentials']['credentials_found'])
         self.report['summary']['cameras_accessed'] = len(self.report['phase_4_persistence']['cameras_accessed'])
-        self.report['summary']['router_access'] = len(self.report['phase_4_persistence']['router_access'])
+        self.report['summary']['router_access'] = len(self.report['phase_4_persistence'].get('router_access', []))
         self.report['summary']['network_services'] = len(self.report['phase_4_persistence']['network_persistence'])
         
         # Análisis detallado de éxitos y fallos
@@ -4995,26 +4995,26 @@ WantedBy=multi-user.target
         
         # Calcular total de accesos remotos
         total_remote_access = (
-            len(self.report['phase_4_persistence']['router_access']) +
-            len(self.report['phase_4_persistence']['network_persistence']) +
+            len(self.report['phase_4_persistence'].get('router_access', [])) +
+            len(self.report['phase_4_persistence'].get('network_persistence', [])) +
             len(self.report['phase_4_persistence'].get('vulnerable_backdoors', [])) +
-            len(self.report['phase_4_persistence']['backdoors_created']) +
-            len(self.report['phase_4_persistence']['users_created']) +
-            len([cam for cam in self.report['phase_4_persistence']['cameras_accessed'] if cam.get('backdoor_info', {}).get('status') != 'failed'])
+            len(self.report['phase_4_persistence'].get('backdoors_created', [])) +
+            len(self.report['phase_4_persistence'].get('users_created', [])) +
+            len([cam for cam in self.report['phase_4_persistence'].get('cameras_accessed', []) if cam and cam.get('backdoor_info', {}).get('status') != 'failed'])
         )
         self.report['summary']['total_remote_access_points'] = total_remote_access
         
         # Calcular backdoors externos vs internos
         external_backdoors = (
-            len(self.report['phase_4_persistence']['router_access']) +
-            len(self.report['phase_4_persistence']['network_persistence']) +
+            len(self.report['phase_4_persistence'].get('router_access', [])) +
+            len(self.report['phase_4_persistence'].get('network_persistence', [])) +
             len(self.report['phase_4_persistence'].get('vulnerable_backdoors', [])) +
-            len([cam for cam in self.report['phase_4_persistence']['cameras_accessed'] if cam.get('backdoor_info', {}).get('status') != 'failed'])
+            len([cam for cam in self.report['phase_4_persistence'].get('cameras_accessed', []) if cam and cam.get('backdoor_info', {}).get('status') != 'failed'])
         )
         
         internal_backdoors = (
-            len(self.report['phase_4_persistence']['backdoors_created']) +
-            len(self.report['phase_4_persistence']['users_created'])
+            len(self.report['phase_4_persistence'].get('backdoors_created', [])) +
+            len(self.report['phase_4_persistence'].get('users_created', []))
         )
         
         self.report['summary']['external_backdoors'] = external_backdoors
@@ -5023,21 +5023,30 @@ WantedBy=multi-user.target
         self.report['summary']['internal_backdoor_types'] = []
         
         # Tipos de backdoors externos
-        if self.report['phase_4_persistence']['router_access']:
-            self.report['summary']['external_backdoor_types'].append(f"Router Access ({len(self.report['phase_4_persistence']['router_access'])})")
-        if self.report['phase_4_persistence']['network_persistence']:
-            self.report['summary']['external_backdoor_types'].append(f"Network Services ({len(self.report['phase_4_persistence']['network_persistence'])})")
-        if self.report['phase_4_persistence'].get('vulnerable_backdoors'):
-            self.report['summary']['external_backdoor_types'].append(f"Vulnerable Services ({len(self.report['phase_4_persistence']['vulnerable_backdoors'])})")
-        camera_backdoors = [cam for cam in self.report['phase_4_persistence']['cameras_accessed'] if cam.get('backdoor_info', {}).get('status') != 'failed']
+        router_access = self.report['phase_4_persistence'].get('router_access', [])
+        if router_access:
+            self.report['summary']['external_backdoor_types'].append(f"Router Access ({len(router_access)})")
+        
+        network_persistence = self.report['phase_4_persistence'].get('network_persistence', [])
+        if network_persistence:
+            self.report['summary']['external_backdoor_types'].append(f"Network Services ({len(network_persistence)})")
+        
+        vulnerable_backdoors = self.report['phase_4_persistence'].get('vulnerable_backdoors', [])
+        if vulnerable_backdoors:
+            self.report['summary']['external_backdoor_types'].append(f"Vulnerable Services ({len(vulnerable_backdoors)})")
+        
+        camera_backdoors = [cam for cam in self.report['phase_4_persistence'].get('cameras_accessed', []) if cam and cam.get('backdoor_info', {}).get('status') != 'failed']
         if camera_backdoors:
             self.report['summary']['external_backdoor_types'].append(f"Camera Backdoors ({len(camera_backdoors)})")
         
         # Tipos de backdoors internos
-        if self.report['phase_4_persistence']['backdoors_created']:
-            self.report['summary']['internal_backdoor_types'].append(f"Backdoors ({len(self.report['phase_4_persistence']['backdoors_created'])})")
-        if self.report['phase_4_persistence']['users_created']:
-            self.report['summary']['internal_backdoor_types'].append(f"Persistent Users ({len(self.report['phase_4_persistence']['users_created'])})")
+        backdoors_created = self.report['phase_4_persistence'].get('backdoors_created', [])
+        if backdoors_created:
+            self.report['summary']['internal_backdoor_types'].append(f"Backdoors ({len(backdoors_created)})")
+        
+        users_created = self.report['phase_4_persistence'].get('users_created', [])
+        if users_created:
+            self.report['summary']['internal_backdoor_types'].append(f"Persistent Users ({len(users_created)})")
         self.report['summary']['remote_access_available'] = total_remote_access > 0
         
         end_time = time.time()
@@ -5115,7 +5124,7 @@ WantedBy=multi-user.target
         print("\n" + "=" * 80)
         
         # Mostrar información de cámaras si hay alguna
-        cameras = self.report['phase_4_persistence']['cameras_accessed']
+        cameras = self.report['phase_4_persistence'].get('cameras_accessed', [])
         if cameras:
             print("\n📹 CÁMARAS ACCEDIDAS:")
             for camera in cameras:
