@@ -2470,15 +2470,20 @@ quit
             if router_access:
                 print(f"✅ ROUTER COMPROMETIDO: {len(router_access)}")
                 for router in router_access:
-                    print(f"   🌐 {router['gateway']} - {router['router_type']}")
-                    print(f"      🔑 Credenciales: {router['credentials']['username']}:{router['credentials']['password']}")
-                    config = router.get('configuration', {})
-                    if config.get('port_forwarding'):
-                        print(f"      🔗 Port forwarding configurado: {len(config['port_forwarding'])} reglas")
-                    if config.get('vpn_server'):
-                        print(f"      🔒 VPN configurada: {config['vpn_server']}")
-                    if config.get('admin_user_created'):
-                        print(f"      👤 Usuario admin creado: {config['admin_user_created']}")
+                    if router and isinstance(router, dict):
+                        print(f"   🌐 {router.get('gateway', 'unknown')} - {router.get('router_type', 'unknown')}")
+                        credentials = router.get('credentials')
+                        if credentials and isinstance(credentials, dict):
+                            print(f"      🔑 Credenciales: {credentials.get('username', 'unknown')}:{credentials.get('password', 'unknown')}")
+                        else:
+                            print(f"      🔑 Credenciales: No disponibles")
+                        config = router.get('configuration', {})
+                        if config and config.get('port_forwarding'):
+                            print(f"      🔗 Port forwarding configurado: {len(config['port_forwarding'])} reglas")
+                        if config and config.get('vpn_server'):
+                            print(f"      🔒 VPN configurada: {config['vpn_server']}")
+                        if config and config.get('admin_user_created'):
+                            print(f"      👤 Usuario admin creado: {config['admin_user_created']}")
             else:
                 print("❌ No se pudo acceder al router")
             
@@ -5970,14 +5975,20 @@ if __name__ == "__main__":
             access_types.append(f"Router Access ({len(router_access)})")
             print("🌐 ACCESO AL ROUTER:")
             for router in router_access:
-                print(f"   • Gateway: {router['gateway']}")
-                print(f"   • Tipo: {router['router_type']}")
-                print(f"   • Credenciales: {router['credentials']['username']}:{router['credentials']['password']}")
-                if router.get('configuration', {}).get('port_forwarding'):
-                    print(f"   • Port Forwarding: {len(router['configuration']['port_forwarding'])} reglas configuradas")
-                if router.get('configuration', {}).get('vpn_server'):
-                    print(f"   • VPN Server: Habilitado")
-                print()
+                if router and isinstance(router, dict):
+                    print(f"   • Gateway: {router.get('gateway', 'unknown')}")
+                    print(f"   • Tipo: {router.get('router_type', 'unknown')}")
+                    credentials = router.get('credentials')
+                    if credentials and isinstance(credentials, dict):
+                        print(f"   • Credenciales: {credentials.get('username', 'unknown')}:{credentials.get('password', 'unknown')}")
+                    else:
+                        print(f"   • Credenciales: No disponibles")
+                    config = router.get('configuration', {})
+                    if config and config.get('port_forwarding'):
+                        print(f"   • Port Forwarding: {len(config['port_forwarding'])} reglas configuradas")
+                    if config and config.get('vpn_server'):
+                        print(f"   • VPN Server: Habilitado")
+                    print()
         
         # 2. Vulnerable Service Backdoors
         vulnerable_backdoors = self.report['phase_4_persistence'].get('vulnerable_backdoors', [])
